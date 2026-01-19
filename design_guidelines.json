@@ -1,0 +1,147 @@
+{
+  "identity": {
+    "name": "HireFlow AI",
+    "archetype": "The Performance Pro",
+    "tone": "Empowering, Precision-Focused, High-Contrast",
+    "mission": "To give job seekers an unfair advantage through AI-driven clarity and speed."
+  },
+  "typography": {
+    "fonts": {
+      "heading": "Manrope",
+      "body": "Inter",
+      "mono": "JetBrains Mono"
+    },
+    "weights": {
+      "heading": "font-bold tracking-tight",
+      "body": "font-normal tracking-normal"
+    },
+    "scale": {
+      "h1": "text-4xl md:text-6xl lg:text-7xl font-extrabold tracking-tighter",
+      "h2": "text-3xl md:text-4xl font-bold tracking-tight",
+      "h3": "text-2xl font-semibold tracking-tight",
+      "p": "text-base md:text-lg leading-relaxed text-muted-foreground"
+    }
+  },
+  "colors": {
+    "palette_name": "Electric Obsidian",
+    "light_theme": {
+      "background": "0 0% 100%",
+      "foreground": "222 47% 11%",
+      "card": "0 0% 100%",
+      "card_foreground": "222 47% 11%",
+      "popover": "0 0% 100%",
+      "popover_foreground": "222 47% 11%",
+      "primary": "249 72% 47%",
+      "primary_foreground": "210 40% 98%",
+      "secondary": "210 40% 96.1%",
+      "secondary_foreground": "222 47% 11%",
+      "muted": "210 40% 96.1%",
+      "muted_foreground": "215 16% 47%",
+      "accent": "210 40% 96.1%",
+      "accent_foreground": "222 47% 11%",
+      "destructive": "0 84.2% 60.2%",
+      "destructive_foreground": "210 40% 98%",
+      "border": "214 32% 91%",
+      "input": "214 32% 91%",
+      "ring": "249 72% 47%",
+      "chart_1": "249 72% 47%",
+      "chart_2": "160 84% 39%",
+      "chart_3": "30 80% 55%",
+      "chart_4": "280 65% 60%",
+      "chart_5": "340 75% 55%"
+    },
+    "dark_theme": {
+      "background": "224 71% 4%",
+      "foreground": "210 40% 98%",
+      "card": "224 71% 4%",
+      "card_foreground": "210 40% 98%",
+      "popover": "224 71% 4%",
+      "popover_foreground": "210 40% 98%",
+      "primary": "249 90% 68%",
+      "primary_foreground": "222 47% 11%",
+      "secondary": "217 19% 27%",
+      "secondary_foreground": "210 40% 98%",
+      "muted": "217 19% 27%",
+      "muted_foreground": "215 20% 65%",
+      "accent": "217 19% 27%",
+      "accent_foreground": "210 40% 98%",
+      "destructive": "0 62.8% 30.6%",
+      "destructive_foreground": "210 40% 98%",
+      "border": "217 19% 27%",
+      "input": "217 19% 27%",
+      "ring": "249 90% 68%",
+      "chart_1": "249 90% 68%",
+      "chart_2": "160 60% 45%",
+      "chart_3": "30 80% 55%",
+      "chart_4": "280 65% 60%",
+      "chart_5": "340 75% 55%"
+    }
+  },
+  "layout_strategies": {
+    "marketing_grid": "grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-12 p-6 md:p-12",
+    "dashboard_grid": "grid grid-cols-1 md:grid-cols-4 gap-6 p-6",
+    "bento_hero": "col-span-full md:col-span-8 row-span-2",
+    "bento_sidebar": "col-span-full md:col-span-4 row-span-2",
+    "container_padding": "px-6 md:px-12 lg:px-24 py-12 md:py-24"
+  },
+  "component_styles": {
+    "radius": "0.5rem",
+    "button_primary": "bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg hover:shadow-primary/25 transition-all duration-300",
+    "card_base": "bg-card text-card-foreground border border-border shadow-sm hover:shadow-md transition-all duration-300",
+    "input_base": "bg-background border-input focus:ring-2 focus:ring-primary/20 transition-all duration-200",
+    "glass_panel": "bg-background/70 backdrop-blur-xl border border-white/10 shadow-xl"
+  },
+  "visual_enhancers": {
+    "gradients": {
+      "hero_glow": "bg-gradient-to-tr from-primary/20 via-background to-background",
+      "text_gradient": "bg-clip-text text-transparent bg-gradient-to-r from-primary to-purple-500"
+    },
+    "textures": {
+      "noise": "opacity-[0.03] pointer-events-none fixed inset-0 z-50 bg-[url('https://grainy-gradients.vercel.app/noise.svg')]"
+    },
+    "animations": {
+      "fade_in_up": "animate-in fade-in slide-in-from-bottom-8 duration-700",
+      "hover_lift": "hover:-translate-y-1 transition-transform duration-300"
+    }
+  },
+  "image_urls": {
+    "hero_main": {
+      "url": "https://images.pexels.com/photos/35334354/pexels-photo-35334354.jpeg",
+      "alt": "Confident professional woman looking at future",
+      "category": "hero"
+    },
+    "team_collaboration": {
+      "url": "https://images.unsplash.com/photo-1758518729685-f88df7890776?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzB8MHwxfHNlYXJjaHwxfHxtb2Rlcm4lMjBvZmZpY2UlMjB0ZWFtJTIwY29sbGFib3JhdGlvbnxlbnwwfHx8fDE3Njg3NjU0Mzl8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Diverse team collaborating in modern office",
+      "category": "about"
+    },
+    "ai_abstract": {
+      "url": "https://images.pexels.com/photos/17483870/pexels-photo-17483870.png",
+      "alt": "Abstract data flow visualization representing AI",
+      "category": "features"
+    },
+    "office_vibe": {
+      "url": "https://images.unsplash.com/photo-1760611656007-f767a8082758?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NTY2NzB8MHwxfHNlYXJjaHw0fHxtb2Rlcm4lMjBvZmZpY2UlMjB0ZWFtJTIwY29sbGFib3JhdGlvbnxlbnwwfHx8fDE3Njg3NjU0Mzl8MA&ixlib=rb-4.1.0&q=85",
+      "alt": "Two people working at a table",
+      "category": "general"
+    }
+  },
+  "universal_guidelines": [
+    "DO NOT use generic centered layouts. Use asymmetry.",
+    "DO NOT use 'Inter' for headings. Use 'Manrope'.",
+    "DO NOT use teal/purple gradients. Use the defined 'Electric Obsidian' palette.",
+    "ALWAYS add 'data-testid' to interactive elements.",
+    "ALWAYS use 'sonner' for toasts.",
+    "Use 'lucide-react' for icons.",
+    "Ensure 3:1 contrast ratio for large text and 4.5:1 for normal text.",
+    "Use 'lenis' for smooth scrolling on the marketing page.",
+    "Dashboard must be dense and data-rich, not airy and empty."
+  ],
+  "instructions_to_main_agent": {
+    "step_1": "Update /app/frontend/src/index.css with the provided HSL variables.",
+    "step_2": "Install necessary dependencies: lucide-react, sonner, @lenis/react, clsx, tailwind-merge.",
+    "step_3": "Create the layout components (Navbar, Sidebar) using the 'glass_panel' style.",
+    "step_4": "Implement the Landing Page using the 'marketing_grid' and 'hero_main' image.",
+    "step_5": "Implement the Dashboard using the 'dashboard_grid' and 'card_base' styles."
+  }
+}
