@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-01-22T14:51:04.906798",
+  "timestamp": "2026-01-22T14:51:16.419916",
   "total_tests": 11,
-  "passed_tests": 7,
-  "success_rate": "63.6%",
-  "all_passed": false,
+  "passed_tests": 11,
+  "success_rate": "100.0%",
+  "all_passed": true,
   "test_details": [
     {
       "test": "Health Check",
@@ -27,8 +27,8 @@
     },
     {
       "test": "Create Job Application",
-      "success": false,
-      "details": "Failed to create application: {'id': '14d377e0-9612-4751-8173-8af68732f5cf', 'user_id': '0f5714ba-2425-4af3-8720-f1a05424543d', 'company': 'Test Company Inc', 'position': 'Senior Software Engineer', 'job_url': 'https://testcompany.com/jobs/123', 'job_description': 'We are looking for a senior software engineer with 5+ years experience in Python and React.', 'status': 'applied', 'notes': 'Applied through company website', 'applied_date': '2025-01-15', 'created_at': '2026-01-22T14:51:04.752323+00:00', 'updated_at': '2026-01-22T14:51:04.752323+00:00', 'expected_status': 201, 'actual_status': 200}"
+      "success": true,
+      "details": ""
     },
     {
       "test": "Get Job Applications",
@@ -37,13 +37,13 @@
     },
     {
       "test": "Get Single Application",
-      "success": false,
-      "details": "No test application ID available"
+      "success": true,
+      "details": ""
     },
     {
       "test": "Update Job Application",
-      "success": false,
-      "details": "No test application ID available"
+      "success": true,
+      "details": ""
     },
     {
       "test": "Filter Applications by Status",
@@ -57,8 +57,8 @@
     },
     {
       "test": "Delete Job Application",
-      "success": false,
-      "details": "No test application ID available"
+      "success": true,
+      "details": ""
     }
   ]
 }
