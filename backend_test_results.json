@@ -1,0 +1,19 @@
+{
+  "timestamp": "2026-01-22T14:50:52.880442",
+  "total_tests": 2,
+  "passed_tests": 1,
+  "success_rate": "50.0%",
+  "all_passed": false,
+  "test_details": [
+    {
+      "test": "Health Check",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "User Registration",
+      "success": false,
+      "details": "Missing token or user in response: {'detail': [{'type': 'value_error', 'loc': ['body', 'email'], 'msg': 'value is not a valid email address: The part after the @-sign is a special-use or reserved name that cannot be used with email.', 'input': 'test145052@hireflow.test', 'ctx': {'reason': 'The part after the @-sign is a special-use or reserved name that cannot be used with email.'}}], 'expected_status': 200, 'actual_status': 422}"
+    }
+  ]
+}
