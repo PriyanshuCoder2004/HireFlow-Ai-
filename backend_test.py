@@ -84,7 +84,7 @@ class HireFlowAPITester:
         timestamp = datetime.now().strftime('%H%M%S')
         test_user = {
             "name": f"Test User {timestamp}",
-            "email": f"test{timestamp}@hireflow.test",
+            "email": f"test{timestamp}@example.com",
             "password": "TestPass123!"
         }
         
