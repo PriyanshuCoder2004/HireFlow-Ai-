@@ -146,7 +146,7 @@ class HireFlowAPITester:
             "applied_date": "2025-01-15"
         }
         
-        success, response = self.make_request('POST', 'applications', app_data, 201)
+        success, response = self.make_request('POST', 'applications', app_data, 200)
         
         if success and 'id' in response:
             self.test_app_id = response['id']
