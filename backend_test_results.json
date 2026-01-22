@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-01-22T14:50:52.880442",
-  "total_tests": 2,
-  "passed_tests": 1,
-  "success_rate": "50.0%",
+  "timestamp": "2026-01-22T14:51:04.906798",
+  "total_tests": 11,
+  "passed_tests": 7,
+  "success_rate": "63.6%",
   "all_passed": false,
   "test_details": [
     {
@@ -12,8 +12,53 @@
     },
     {
       "test": "User Registration",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "User Login",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Protected Route Access",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Create Job Application",
       "success": false,
-      "details": "Missing token or user in response: {'detail': [{'type': 'value_error', 'loc': ['body', 'email'], 'msg': 'value is not a valid email address: The part after the @-sign is a special-use or reserved name that cannot be used with email.', 'input': 'test145052@hireflow.test', 'ctx': {'reason': 'The part after the @-sign is a special-use or reserved name that cannot be used with email.'}}], 'expected_status': 200, 'actual_status': 422}"
+      "details": "Failed to create application: {'id': '14d377e0-9612-4751-8173-8af68732f5cf', 'user_id': '0f5714ba-2425-4af3-8720-f1a05424543d', 'company': 'Test Company Inc', 'position': 'Senior Software Engineer', 'job_url': 'https://testcompany.com/jobs/123', 'job_description': 'We are looking for a senior software engineer with 5+ years experience in Python and React.', 'status': 'applied', 'notes': 'Applied through company website', 'applied_date': '2025-01-15', 'created_at': '2026-01-22T14:51:04.752323+00:00', 'updated_at': '2026-01-22T14:51:04.752323+00:00', 'expected_status': 201, 'actual_status': 200}"
+    },
+    {
+      "test": "Get Job Applications",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Get Single Application",
+      "success": false,
+      "details": "No test application ID available"
+    },
+    {
+      "test": "Update Job Application",
+      "success": false,
+      "details": "No test application ID available"
+    },
+    {
+      "test": "Filter Applications by Status",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Analytics Endpoint",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Delete Job Application",
+      "success": false,
+      "details": "No test application ID available"
     }
   ]
 }
