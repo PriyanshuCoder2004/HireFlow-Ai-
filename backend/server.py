@@ -299,6 +299,8 @@ async def create_resume(resume_data: ResumeCreate, current_user: dict = Depends(
         "user_id": current_user["id"],
         "title": resume_data.title,
         "content": resume_data.content,
+        "file_name": None,
+        "file_type": None,
         "analysis": None,
         "score": None,
         "created_at": now,
@@ -306,6 +308,76 @@ async def create_resume(resume_data: ResumeCreate, current_user: dict = Depends(
     }
     
     await db.resumes.insert_one(resume_doc)
+    return ResumeResponse(**{k: v for k, v in resume_doc.items() if k != "_id"})
+
+@api_router.post("/resumes/upload", response_model=ResumeResponse)
+async def upload_resume(
+    file: UploadFile = File(...),
+    title: str = Form(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Upload a PDF or DOCX resume file and extract text content"""
+    # Validate file type
+    allowed_types = {
+        "application/pdf": "pdf",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+        "application/msword": "doc"
+    }
+    
+    content_type = file.content_type
+    if content_type not in allowed_types:
+        # Also check by file extension
+        file_ext = file.filename.lower().split(".")[-1] if file.filename else ""
+        if file_ext not in ["pdf", "docx", "doc"]:
+            raise HTTPException(
+                status_code=400, 
+                detail="Invalid file type. Please upload a PDF or DOCX file."
+            )
+        file_type = file_ext
+    else:
+        file_type = allowed_types[content_type]
+    
+    # Read file content
+    file_content = await file.read()
+    
+    # Check file size (max 10MB)
+    if len(file_content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="File size exceeds 10MB limit")
+    
+    # Extract text based on file type
+    if file_type == "pdf":
+        extracted_text = extract_text_from_pdf(file_content)
+    elif file_type in ["docx", "doc"]:
+        extracted_text = extract_text_from_docx(file_content)
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported file format")
+    
+    if not extracted_text or len(extracted_text.strip()) < 50:
+        raise HTTPException(
+            status_code=400, 
+            detail="Could not extract sufficient text from the file. Please ensure the file contains readable text."
+        )
+    
+    # Create resume record
+    resume_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    resume_doc = {
+        "id": resume_id,
+        "user_id": current_user["id"],
+        "title": title,
+        "content": extracted_text,
+        "file_name": file.filename,
+        "file_type": file_type,
+        "analysis": None,
+        "score": None,
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.resumes.insert_one(resume_doc)
+    logger.info(f"Resume uploaded successfully: {file.filename} for user {current_user['id']}")
+    
     return ResumeResponse(**{k: v for k, v in resume_doc.items() if k != "_id"})
 
 @api_router.get("/resumes", response_model=List[ResumeResponse])
