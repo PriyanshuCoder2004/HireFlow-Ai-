@@ -261,6 +261,188 @@ class HireFlowAPITester:
                          f"Analytics endpoint failed: {response}")
             return False
 
+    def create_test_pdf_content(self) -> bytes:
+        """Create a simple test PDF content"""
+        # Simple PDF content for testing
+        pdf_content = b"""%PDF-1.4
+1 0 obj
+<<
+/Type /Catalog
+/Pages 2 0 R
+>>
+endobj
+
+2 0 obj
+<<
+/Type /Pages
+/Kids [3 0 R]
+/Count 1
+>>
+endobj
+
+3 0 obj
+<<
+/Type /Page
+/Parent 2 0 R
+/MediaBox [0 0 612 792]
+/Contents 4 0 R
+>>
+endobj
+
+4 0 obj
+<<
+/Length 44
+>>
+stream
+BT
+/F1 12 Tf
+72 720 Td
+(John Doe Resume) Tj
+ET
+endstream
+endobj
+
+xref
+0 5
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000204 00000 n 
+trailer
+<<
+/Size 5
+/Root 1 0 R
+>>
+startxref
+297
+%%EOF"""
+        return pdf_content
+
+    def test_create_resume_text(self):
+        """Test creating a resume with text content"""
+        resume_data = {
+            "title": "Test Resume - Text",
+            "content": "John Doe\nSoftware Engineer\n\nExperience:\n- 5 years Python development\n- React frontend experience\n- AWS cloud services"
+        }
+        
+        success, response = self.make_request('POST', 'resumes', resume_data, 200)
+        
+        if success and 'id' in response:
+            self.test_resume_id = response['id']
+            self.log_test("Create Resume (Text)", True)
+            return True
+        else:
+            self.log_test("Create Resume (Text)", False, 
+                         f"Failed to create text resume: {response}")
+            return False
+
+    def test_upload_resume_pdf(self):
+        """Test uploading a PDF resume"""
+        # Create test PDF content
+        pdf_content = self.create_test_pdf_content()
+        
+        # Prepare multipart form data
+        files = {
+            'file': ('test_resume.pdf', io.BytesIO(pdf_content), 'application/pdf')
+        }
+        data = {
+            'title': 'Test Resume - PDF Upload'
+        }
+        
+        success, response = self.make_request('POST', 'resumes/upload', data=data, files=files, expected_status=200)
+        
+        if success and 'id' in response and response.get('file_type') == 'pdf':
+            self.test_uploaded_resume_id = response['id']
+            self.log_test("Upload Resume (PDF)", True)
+            return True
+        else:
+            self.log_test("Upload Resume (PDF)", False, 
+                         f"Failed to upload PDF resume: {response}")
+            return False
+
+    def test_upload_invalid_file_type(self):
+        """Test uploading invalid file type"""
+        # Create a fake text file
+        fake_content = b"This is not a PDF or DOCX file"
+        
+        files = {
+            'file': ('test.txt', io.BytesIO(fake_content), 'text/plain')
+        }
+        data = {
+            'title': 'Invalid File Test'
+        }
+        
+        success, response = self.make_request('POST', 'resumes/upload', data=data, files=files, expected_status=400)
+        
+        if success:  # We expect a 400 error for invalid file type
+            self.log_test("Upload Invalid File Type", True)
+            return True
+        else:
+            self.log_test("Upload Invalid File Type", False, 
+                         f"Should have rejected invalid file type: {response}")
+            return False
+
+    def test_get_resumes(self):
+        """Test retrieving all resumes"""
+        success, response = self.make_request('GET', 'resumes')
+        
+        if success and isinstance(response, list):
+            self.log_test("Get Resumes", True)
+            return True
+        else:
+            self.log_test("Get Resumes", False, 
+                         f"Failed to get resumes: {response}")
+            return False
+
+    def test_get_single_resume(self):
+        """Test retrieving a single resume"""
+        if not hasattr(self, 'test_resume_id'):
+            self.log_test("Get Single Resume", False, "No test resume ID available")
+            return False
+            
+        success, response = self.make_request('GET', f'resumes/{self.test_resume_id}')
+        
+        if success and response.get('id') == self.test_resume_id:
+            self.log_test("Get Single Resume", True)
+            return True
+        else:
+            self.log_test("Get Single Resume", False, 
+                         f"Failed to get single resume: {response}")
+            return False
+
+    def test_analyze_resume(self):
+        """Test resume analysis with AI"""
+        if not hasattr(self, 'test_resume_id'):
+            self.log_test("Analyze Resume", False, "No test resume ID available")
+            return False
+            
+        success, response = self.make_request('POST', f'resumes/{self.test_resume_id}/analyze')
+        
+        if success and 'analysis' in response and 'score' in response:
+            self.log_test("Analyze Resume", True)
+            return True
+        else:
+            self.log_test("Analyze Resume", False, 
+                         f"Failed to analyze resume: {response}")
+            return False
+
+    def test_delete_resume(self):
+        """Test deleting a resume"""
+        if not hasattr(self, 'test_resume_id'):
+            self.log_test("Delete Resume", False, "No test resume ID available")
+            return False
+            
+        success, response = self.make_request('DELETE', f'resumes/{self.test_resume_id}', expected_status=200)
+        
+        if success:
+            self.log_test("Delete Resume", True)
+            return True
+        else:
+            self.log_test("Delete Resume", False, 
+                         f"Failed to delete resume: {response}")
+            return False
+
     def run_all_tests(self):
         """Run all tests in sequence"""
         print("🚀 Starting HireFlow AI Backend API Tests")
