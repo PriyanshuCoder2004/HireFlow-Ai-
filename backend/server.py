@@ -71,6 +71,8 @@ class ResumeResponse(BaseModel):
     user_id: str
     title: str
     content: str
+    file_name: Optional[str] = None
+    file_type: Optional[str] = None
     analysis: Optional[dict] = None
     score: Optional[int] = None
     created_at: str
