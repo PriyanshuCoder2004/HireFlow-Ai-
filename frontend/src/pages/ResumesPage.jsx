@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -38,7 +39,11 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
-  Lightbulb
+  Lightbulb,
+  Upload,
+  FileUp,
+  File,
+  X
 } from "lucide-react";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -51,8 +56,12 @@ export default function ResumesPage() {
   const [deleteId, setDeleteId] = useState(null);
   const [selectedResume, setSelectedResume] = useState(null);
   const [analyzing, setAnalyzing] = useState(null);
+  const [activeTab, setActiveTab] = useState("upload");
   const [formData, setFormData] = useState({ title: "", content: "" });
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     fetchResumes();
@@ -69,6 +78,68 @@ export default function ResumesPage() {
     }
   };
 
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      const validExtensions = ['pdf', 'docx'];
+      const fileExt = file.name.split('.').pop()?.toLowerCase();
+      
+      if (!validTypes.includes(file.type) && !validExtensions.includes(fileExt)) {
+        toast.error("Please upload a PDF or DOCX file");
+        return;
+      }
+      
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("File size must be less than 10MB");
+        return;
+      }
+      
+      setSelectedFile(file);
+      // Auto-fill title from filename (without extension)
+      if (!formData.title) {
+        const nameWithoutExt = file.name.replace(/\.[^/.]+$/, "");
+        setFormData({ ...formData, title: nameWithoutExt });
+      }
+    }
+  };
+
+  const handleFileUpload = async () => {
+    if (!selectedFile) {
+      toast.error("Please select a file to upload");
+      return;
+    }
+    if (!formData.title.trim()) {
+      toast.error("Please enter a title for your resume");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const formDataObj = new FormData();
+      formDataObj.append("file", selectedFile);
+      formDataObj.append("title", formData.title);
+
+      const response = await axios.post(`${API}/resumes/upload`, formDataObj, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+      
+      setResumes([response.data, ...resumes]);
+      setCreateOpen(false);
+      resetForm();
+      toast.success("Resume uploaded successfully! Text has been extracted.");
+    } catch (error) {
+      console.error(error);
+      toast.error(error.response?.data?.detail || "Failed to upload resume");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const handleCreate = async () => {
     if (!formData.title.trim() || !formData.content.trim()) {
       toast.error("Please fill in all fields");
@@ -80,7 +151,7 @@ export default function ResumesPage() {
       const response = await axios.post(`${API}/resumes`, formData);
       setResumes([response.data, ...resumes]);
       setCreateOpen(false);
-      setFormData({ title: "", content: "" });
+      resetForm();
       toast.success("Resume created successfully");
     } catch (error) {
       toast.error("Failed to create resume");
@@ -116,6 +187,15 @@ export default function ResumesPage() {
     }
   };
 
+  const resetForm = () => {
+    setFormData({ title: "", content: "" });
+    setSelectedFile(null);
+    setActiveTab("upload");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   const getScoreColor = (score) => {
     if (score >= 80) return "text-green-500";
     if (score >= 60) return "text-yellow-500";
@@ -128,6 +208,12 @@ export default function ResumesPage() {
       day: "numeric",
       year: "numeric"
     });
+  };
+
+  const getFileTypeIcon = (fileType) => {
+    if (fileType === "pdf") return "📄";
+    if (fileType === "docx" || fileType === "doc") return "📝";
+    return "📃";
   };
 
   if (loading) {
@@ -152,10 +238,10 @@ export default function ResumesPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Resumes</h1>
-          <p className="text-muted-foreground">Manage and analyze your resumes with AI</p>
+          <p className="text-muted-foreground">Upload and analyze your resumes with AI</p>
         </div>
         
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <Dialog open={createOpen} onOpenChange={(open) => { setCreateOpen(open); if (!open) resetForm(); }}>
           <DialogTrigger asChild>
             <Button data-testid="add-resume-btn">
               <Plus className="mr-2 h-4 w-4" />
@@ -166,45 +252,167 @@ export default function ResumesPage() {
             <DialogHeader>
               <DialogTitle>Add New Resume</DialogTitle>
               <DialogDescription>
-                Paste your resume content for AI analysis
+                Upload a PDF/DOCX file or paste your resume content
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="title">Resume Title</Label>
-                <Input
-                  id="title"
-                  placeholder="e.g., Software Engineer Resume"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  data-testid="resume-title-input"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="content">Resume Content</Label>
-                <Textarea
-                  id="content"
-                  placeholder="Paste your resume text here..."
-                  rows={12}
-                  value={formData.content}
-                  onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                  data-testid="resume-content-input"
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCreateOpen(false)}>Cancel</Button>
-              <Button onClick={handleCreate} disabled={submitting} data-testid="create-resume-submit">
-                {submitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  "Create Resume"
-                )}
-              </Button>
-            </DialogFooter>
+            
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="upload" data-testid="upload-tab">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Upload File
+                </TabsTrigger>
+                <TabsTrigger value="paste" data-testid="paste-tab">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Paste Text
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="upload" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="upload-title">Resume Title</Label>
+                  <Input
+                    id="upload-title"
+                    placeholder="e.g., Software Engineer Resume"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    data-testid="upload-resume-title-input"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Resume File (PDF or DOCX)</Label>
+                  <div 
+                    className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                      selectedFile ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
+                    }`}
+                    onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) {
+                        const input = fileInputRef.current;
+                        if (input) {
+                          const dt = new DataTransfer();
+                          dt.items.add(file);
+                          input.files = dt.files;
+                          handleFileSelect({ target: { files: dt.files } });
+                        }
+                      }
+                    }}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                      id="resume-file-input"
+                      data-testid="resume-file-input"
+                    />
+                    
+                    {selectedFile ? (
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="h-14 w-14 rounded-lg bg-primary/10 flex items-center justify-center">
+                          <File className="h-7 w-7 text-primary" />
+                        </div>
+                        <div className="text-center">
+                          <p className="font-medium">{selectedFile.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {(selectedFile.size / 1024).toFixed(1)} KB
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedFile(null);
+                            if (fileInputRef.current) fileInputRef.current.value = "";
+                          }}
+                          data-testid="remove-file-btn"
+                        >
+                          <X className="mr-2 h-4 w-4" />
+                          Remove
+                        </Button>
+                      </div>
+                    ) : (
+                      <label htmlFor="resume-file-input" className="cursor-pointer">
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="h-14 w-14 rounded-lg bg-muted flex items-center justify-center">
+                            <FileUp className="h-7 w-7 text-muted-foreground" />
+                          </div>
+                          <div>
+                            <p className="font-medium">Drop your resume here or click to browse</p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Supports PDF and DOCX (max 10MB)
+                            </p>
+                          </div>
+                        </div>
+                      </label>
+                    )}
+                  </div>
+                </div>
+                
+                <Button 
+                  onClick={handleFileUpload} 
+                  disabled={uploading || !selectedFile} 
+                  className="w-full"
+                  data-testid="upload-resume-submit"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Uploading & Extracting Text...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Upload Resume
+                    </>
+                  )}
+                </Button>
+              </TabsContent>
+              
+              <TabsContent value="paste" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="paste-title">Resume Title</Label>
+                  <Input
+                    id="paste-title"
+                    placeholder="e.g., Software Engineer Resume"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    data-testid="resume-title-input"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="content">Resume Content</Label>
+                  <Textarea
+                    id="content"
+                    placeholder="Paste your resume text here..."
+                    rows={12}
+                    value={formData.content}
+                    onChange={(e) => setFormData({ ...formData, content: e.target.value })}
+                    data-testid="resume-content-input"
+                  />
+                </div>
+                <Button 
+                  onClick={handleCreate} 
+                  disabled={submitting} 
+                  className="w-full"
+                  data-testid="create-resume-submit"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    "Create Resume"
+                  )}
+                </Button>
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
       </div>
@@ -218,12 +426,23 @@ export default function ResumesPage() {
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <FileText className="h-5 w-5 text-primary" />
+                      {resume.file_type ? (
+                        <span className="text-lg">{getFileTypeIcon(resume.file_type)}</span>
+                      ) : (
+                        <FileText className="h-5 w-5 text-primary" />
+                      )}
                     </div>
                     <div>
                       <CardTitle className="text-base">{resume.title}</CardTitle>
                       <CardDescription className="text-xs">
-                        {formatDate(resume.created_at)}
+                        {resume.file_name ? (
+                          <span className="flex items-center gap-1">
+                            <File className="h-3 w-3" />
+                            {resume.file_name}
+                          </span>
+                        ) : (
+                          formatDate(resume.created_at)
+                        )}
                       </CardDescription>
                     </div>
                   </div>
@@ -249,6 +468,13 @@ export default function ResumesPage() {
                   <p className="text-sm text-muted-foreground">
                     Not analyzed yet. Click analyze to get AI feedback.
                   </p>
+                )}
+                
+                {resume.file_type && (
+                  <div className="text-xs text-muted-foreground flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                    Text extracted from {resume.file_type.toUpperCase()}
+                  </div>
                 )}
                 
                 <div className="flex gap-2">
@@ -296,10 +522,10 @@ export default function ResumesPage() {
       ) : (
         <Card className="border-border/50 border-dashed" data-testid="no-resumes">
           <CardContent className="flex flex-col items-center justify-center py-16">
-            <FileText className="h-12 w-12 text-muted-foreground/50 mb-4" />
+            <FileUp className="h-12 w-12 text-muted-foreground/50 mb-4" />
             <h3 className="text-lg font-semibold mb-2">No resumes yet</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Add your first resume to get AI-powered analysis and feedback
+              Upload a PDF/DOCX file or paste your resume to get AI-powered analysis
             </p>
             <Button onClick={() => setCreateOpen(true)} data-testid="add-first-resume-btn">
               <Plus className="mr-2 h-4 w-4" />
@@ -317,6 +543,12 @@ export default function ResumesPage() {
               <FileText className="h-5 w-5" />
               {selectedResume?.title}
             </DialogTitle>
+            {selectedResume?.file_name && (
+              <DialogDescription className="flex items-center gap-1">
+                <File className="h-3 w-3" />
+                Uploaded from: {selectedResume.file_name}
+              </DialogDescription>
+            )}
           </DialogHeader>
           <ScrollArea className="max-h-[70vh]">
             <div className="space-y-6 pr-4">
@@ -386,8 +618,8 @@ export default function ResumesPage() {
               )}
               
               <div className="space-y-2">
-                <h4 className="font-semibold">Resume Content</h4>
-                <div className="p-4 rounded-lg bg-muted/50 text-sm whitespace-pre-wrap">
+                <h4 className="font-semibold">Extracted Resume Content</h4>
+                <div className="p-4 rounded-lg bg-muted/50 text-sm whitespace-pre-wrap font-mono">
                   {selectedResume?.content}
                 </div>
               </div>
