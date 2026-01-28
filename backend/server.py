@@ -209,6 +209,41 @@ async def get_llm_response(system_message: str, user_message: str) -> str:
         logger.error(f"LLM error: {e}")
         raise HTTPException(status_code=500, detail="AI service temporarily unavailable")
 
+# ===================== FILE TEXT EXTRACTION =====================
+
+def extract_text_from_pdf(file_content: bytes) -> str:
+    """Extract text content from PDF file"""
+    try:
+        pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_content))
+        text_content = []
+        for page in pdf_reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text_content.append(page_text)
+        return "\n".join(text_content).strip()
+    except Exception as e:
+        logger.error(f"PDF extraction error: {e}")
+        raise HTTPException(status_code=400, detail="Failed to extract text from PDF file")
+
+def extract_text_from_docx(file_content: bytes) -> str:
+    """Extract text content from DOCX file"""
+    try:
+        doc = Document(io.BytesIO(file_content))
+        text_content = []
+        for paragraph in doc.paragraphs:
+            if paragraph.text.strip():
+                text_content.append(paragraph.text)
+        # Also extract text from tables
+        for table in doc.tables:
+            for row in table.rows:
+                row_text = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                if row_text:
+                    text_content.append(" | ".join(row_text))
+        return "\n".join(text_content).strip()
+    except Exception as e:
+        logger.error(f"DOCX extraction error: {e}")
+        raise HTTPException(status_code=400, detail="Failed to extract text from DOCX file")
+
 # ===================== AUTH ROUTES =====================
 
 @api_router.post("/auth/register", response_model=TokenResponse)
