@@ -417,7 +417,8 @@ startxref
             self.log_test("Analyze Resume", False, "No test resume ID available")
             return False
             
-        success, response = self.make_request('POST', f'resumes/{self.test_resume_id}/analyze')
+        # Increase timeout for AI analysis
+        success, response = self.make_request_with_timeout('POST', f'resumes/{self.test_resume_id}/analyze', timeout=30)
         
         if success and 'analysis' in response and 'score' in response:
             self.log_test("Analyze Resume", True)
@@ -426,6 +427,37 @@ startxref
             self.log_test("Analyze Resume", False, 
                          f"Failed to analyze resume: {response}")
             return False
+
+    def make_request_with_timeout(self, method: str, endpoint: str, data: Optional[Dict] = None, 
+                                 expected_status: int = 200, timeout: int = 30) -> tuple[bool, Dict[str, Any]]:
+        """Make HTTP request with custom timeout"""
+        url = f"{self.api_url}/{endpoint}"
+        headers = {'Content-Type': 'application/json'}
+        
+        if self.token:
+            headers['Authorization'] = f'Bearer {self.token}'
+
+        try:
+            if method == 'POST':
+                response = requests.post(url, json=data, headers=headers, timeout=timeout)
+            else:
+                return False, {"error": f"Method {method} not supported in timeout version"}
+
+            success = response.status_code == expected_status
+            
+            try:
+                response_data = response.json()
+            except:
+                response_data = {"status_code": response.status_code, "text": response.text}
+
+            if not success:
+                response_data["expected_status"] = expected_status
+                response_data["actual_status"] = response.status_code
+
+            return success, response_data
+
+        except requests.exceptions.RequestException as e:
+            return False, {"error": str(e)}
 
     def test_delete_resume(self):
         """Test deleting a resume"""
