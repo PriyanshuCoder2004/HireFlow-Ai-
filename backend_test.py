@@ -37,19 +37,26 @@ class HireFlowAPITester:
         })
 
     def make_request(self, method: str, endpoint: str, data: Optional[Dict] = None, 
-                    expected_status: int = 200) -> tuple[bool, Dict[str, Any]]:
+                    expected_status: int = 200, files: Optional[Dict] = None) -> tuple[bool, Dict[str, Any]]:
         """Make HTTP request and validate response"""
         url = f"{self.api_url}/{endpoint}"
-        headers = {'Content-Type': 'application/json'}
+        headers = {}
         
         if self.token:
             headers['Authorization'] = f'Bearer {self.token}'
+        
+        # Only set Content-Type for JSON requests, not for multipart/form-data
+        if not files:
+            headers['Content-Type'] = 'application/json'
 
         try:
             if method == 'GET':
                 response = requests.get(url, headers=headers, timeout=10)
             elif method == 'POST':
-                response = requests.post(url, json=data, headers=headers, timeout=10)
+                if files:
+                    response = requests.post(url, data=data, files=files, headers=headers, timeout=10)
+                else:
+                    response = requests.post(url, json=data, headers=headers, timeout=10)
             elif method == 'PUT':
                 response = requests.put(url, json=data, headers=headers, timeout=10)
             elif method == 'DELETE':
