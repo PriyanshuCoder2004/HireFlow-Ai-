@@ -473,7 +473,18 @@ startxref
         self.test_update_job_application()
         self.test_filter_applications_by_status()
         self.test_analytics_endpoint()
+        
+        # Resume functionality tests
+        self.test_create_resume_text()
+        self.test_upload_resume_pdf()
+        self.test_upload_invalid_file_type()
+        self.test_get_resumes()
+        self.test_get_single_resume()
+        self.test_analyze_resume()
+        
+        # Cleanup tests
         self.test_delete_job_application()
+        self.test_delete_resume()
         
         # Print summary
         print("\n" + "=" * 50)
