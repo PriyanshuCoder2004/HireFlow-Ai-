@@ -58,7 +58,7 @@ Create a full-stack web application called "HireFlow AI" with user authenticatio
 - ✅ All P0 features implemented
 
 ### P1 (High Priority)
-- [ ] Resume file upload (PDF parsing)
+- [x] Resume file upload (PDF/DOCX parsing) - Completed Jan 2025
 - [ ] Interview preparation assistant (Phase 2)
 - [ ] Email notifications for interview reminders
 
