@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-01-22T14:51:16.419916",
-  "total_tests": 11,
-  "passed_tests": 11,
-  "success_rate": "100.0%",
-  "all_passed": true,
+  "timestamp": "2026-01-28T14:50:05.601201",
+  "total_tests": 18,
+  "passed_tests": 16,
+  "success_rate": "88.9%",
+  "all_passed": false,
   "test_details": [
     {
       "test": "Health Check",
@@ -56,7 +56,42 @@
       "details": ""
     },
     {
+      "test": "Create Resume (Text)",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Upload Resume (PDF)",
+      "success": false,
+      "details": "Failed to upload PDF resume: {'detail': 'Could not extract sufficient text from the file. Please ensure the file contains readable text.', 'expected_status': 200, 'actual_status': 400}"
+    },
+    {
+      "test": "Upload Invalid File Type",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Get Resumes",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Get Single Resume",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Analyze Resume",
+      "success": false,
+      "details": "Failed to analyze resume: {'error': \"HTTPSConnectionPool(host='talent-ai-13.preview.emergentagent.com', port=443): Read timed out. (read timeout=10)\"}"
+    },
+    {
       "test": "Delete Job Application",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Delete Resume",
       "success": true,
       "details": ""
     }
