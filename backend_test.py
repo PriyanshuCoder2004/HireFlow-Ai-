@@ -7,6 +7,7 @@ Tests all authentication and job application CRUD operations
 import requests
 import sys
 import json
+import io
 from datetime import datetime
 from typing import Dict, Any, Optional
 
