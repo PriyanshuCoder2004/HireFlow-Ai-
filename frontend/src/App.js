@@ -13,6 +13,7 @@ import ApplicationsPage from "@/pages/ApplicationsPage";
 import CoverLettersPage from "@/pages/CoverLettersPage";
 import CalendarPage from "@/pages/CalendarPage";
 import SettingsPage from "@/pages/SettingsPage";
+import JobMatchPage from "@/pages/JobMatchPage";
 import "@/App.css";
 
 function App() {
