@@ -1,7 +1,7 @@
 {
-  "timestamp": "2026-01-28T14:50:45.871159",
-  "total_tests": 18,
-  "passed_tests": 18,
+  "timestamp": "2026-01-30T12:22:34.809764",
+  "total_tests": 22,
+  "passed_tests": 22,
   "success_rate": "100.0%",
   "all_passed": true,
   "test_details": [
@@ -86,7 +86,27 @@
       "details": ""
     },
     {
+      "test": "Job Match Analysis",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Get Match History",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Get Single Match",
+      "success": true,
+      "details": ""
+    },
+    {
       "test": "Delete Job Application",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Delete Match Analysis",
       "success": true,
       "details": ""
     },
