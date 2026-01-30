@@ -603,8 +603,14 @@ startxref
         self.test_get_single_resume()
         self.test_analyze_resume()
         
+        # Job Match Analysis tests
+        self.test_job_match_analyze()
+        self.test_get_match_history()
+        self.test_get_single_match()
+        
         # Cleanup tests
         self.test_delete_job_application()
+        self.test_delete_match_analysis()
         self.test_delete_resume()
         
         # Print summary
