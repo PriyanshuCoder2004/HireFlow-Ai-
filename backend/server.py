@@ -597,8 +597,154 @@ async def delete_cover_letter(letter_id: str, current_user: dict = Depends(get_c
 
 # ===================== JOB MATCHING ROUTES =====================
 
+@api_router.post("/match/analyze", response_model=JobMatchResponse)
+async def analyze_resume_job_match(request: MatchRequest, current_user: dict = Depends(get_current_user)):
+    """Enhanced resume-to-job matching with comprehensive analysis stored in database"""
+    resume = await db.resumes.find_one({"id": request.resume_id, "user_id": current_user["id"]}, {"_id": 0})
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    
+    system_msg = """You are an expert career advisor and resume analyst. Analyze how well the resume matches the job description.
+
+Provide a comprehensive, structured analysis including:
+1. Overall match score (0-100) based on skills, experience, and qualifications alignment
+2. Skill match analysis - which required skills are present vs missing
+3. Experience match - how well the experience level and type matches
+4. Missing skills - specific skills from the job that are not in the resume
+5. Weak areas - skills mentioned but not strongly demonstrated
+6. Strengths - areas where the candidate excels for this role
+7. Actionable suggestions - specific, role-targeted improvements
+8. Keyword analysis - important keywords from job description found/missing in resume
+
+Respond ONLY in this exact JSON format:
+{
+    "match_score": <number 0-100>,
+    "skill_match": {
+        "matched_skills": ["skill1", "skill2"],
+        "partial_match": ["skill3"],
+        "missing_skills": ["skill4", "skill5"]
+    },
+    "experience_match": {
+        "score": <number 0-100>,
+        "analysis": "brief explanation of experience alignment"
+    },
+    "missing_skills": ["specific skill 1", "specific skill 2"],
+    "weak_areas": ["area needing improvement 1", "area 2"],
+    "strengths": ["strength 1", "strength 2", "strength 3"],
+    "suggestions": [
+        "Specific actionable suggestion 1",
+        "Specific actionable suggestion 2",
+        "Specific actionable suggestion 3"
+    ],
+    "keyword_analysis": {
+        "found": ["keyword1", "keyword2"],
+        "missing": ["keyword3", "keyword4"],
+        "recommendation": "Add these keywords naturally to your resume"
+    },
+    "summary": "2-3 sentence summary of the match and key recommendations"
+}"""
+
+    job_context = f"Job Title: {request.job_title}\nCompany: {request.company_name}\n" if request.job_title else ""
+    
+    user_msg = f"""Analyze this resume against the job description:
+
+{job_context}
+RESUME CONTENT:
+{resume['content']}
+
+JOB DESCRIPTION:
+{request.job_description}
+
+Provide detailed, actionable analysis."""
+
+    response = await get_llm_response(system_msg, user_msg)
+    
+    try:
+        import json
+        clean_response = response.strip()
+        if clean_response.startswith("```json"):
+            clean_response = clean_response[7:]
+        if clean_response.startswith("```"):
+            clean_response = clean_response[3:]
+        if clean_response.endswith("```"):
+            clean_response = clean_response[:-3]
+        analysis_data = json.loads(clean_response.strip())
+        
+        # Ensure all required fields exist with defaults
+        analysis = MatchAnalysis(
+            match_score=analysis_data.get("match_score", 50),
+            skill_match=analysis_data.get("skill_match", {"matched_skills": [], "partial_match": [], "missing_skills": []}),
+            experience_match=analysis_data.get("experience_match", {"score": 50, "analysis": "Analysis not available"}),
+            missing_skills=analysis_data.get("missing_skills", []),
+            weak_areas=analysis_data.get("weak_areas", []),
+            strengths=analysis_data.get("strengths", []),
+            suggestions=analysis_data.get("suggestions", []),
+            keyword_analysis=analysis_data.get("keyword_analysis", {"found": [], "missing": [], "recommendation": ""}),
+            summary=analysis_data.get("summary", "Analysis completed")
+        )
+    except Exception as e:
+        logger.error(f"Failed to parse LLM response: {e}")
+        analysis = MatchAnalysis(
+            match_score=50,
+            skill_match={"matched_skills": [], "partial_match": [], "missing_skills": []},
+            experience_match={"score": 50, "analysis": "Unable to analyze experience match"},
+            missing_skills=["Unable to determine - please try again"],
+            weak_areas=[],
+            strengths=["Resume content detected"],
+            suggestions=["Please try the analysis again for detailed results"],
+            keyword_analysis={"found": [], "missing": [], "recommendation": "Retry analysis"},
+            summary="Analysis encountered an error. Please try again."
+        )
+    
+    # Store the analysis in database
+    match_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    match_doc = {
+        "id": match_id,
+        "user_id": current_user["id"],
+        "resume_id": request.resume_id,
+        "job_title": request.job_title,
+        "company_name": request.company_name,
+        "job_description": request.job_description,
+        "analysis": analysis.model_dump(),
+        "created_at": now
+    }
+    
+    await db.job_matches.insert_one(match_doc)
+    logger.info(f"Job match analysis saved: {match_id} for user {current_user['id']}")
+    
+    return JobMatchResponse(**{k: v for k, v in match_doc.items() if k != "_id"})
+
+@api_router.get("/match/history", response_model=List[JobMatchResponse])
+async def get_match_history(resume_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+    """Get all job match analyses for the user, optionally filtered by resume"""
+    query = {"user_id": current_user["id"]}
+    if resume_id:
+        query["resume_id"] = resume_id
+    
+    matches = await db.job_matches.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return [JobMatchResponse(**m) for m in matches]
+
+@api_router.get("/match/{match_id}", response_model=JobMatchResponse)
+async def get_match_analysis(match_id: str, current_user: dict = Depends(get_current_user)):
+    """Get a specific job match analysis"""
+    match = await db.job_matches.find_one({"id": match_id, "user_id": current_user["id"]}, {"_id": 0})
+    if not match:
+        raise HTTPException(status_code=404, detail="Match analysis not found")
+    return JobMatchResponse(**match)
+
+@api_router.delete("/match/{match_id}")
+async def delete_match_analysis(match_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete a job match analysis"""
+    result = await db.job_matches.delete_one({"id": match_id, "user_id": current_user["id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Match analysis not found")
+    return {"message": "Match analysis deleted"}
+
 @api_router.post("/match", response_model=MatchResponse)
 async def match_resume_to_job(request: MatchRequest, current_user: dict = Depends(get_current_user)):
+    """Legacy simple match endpoint for backward compatibility"""
     resume = await db.resumes.find_one({"id": request.resume_id, "user_id": current_user["id"]}, {"_id": 0})
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
