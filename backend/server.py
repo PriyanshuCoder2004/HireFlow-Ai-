@@ -157,6 +157,29 @@ class CalendarEventResponse(BaseModel):
 class MatchRequest(BaseModel):
     resume_id: str
     job_description: str
+    job_title: Optional[str] = None
+    company_name: Optional[str] = None
+
+class MatchAnalysis(BaseModel):
+    match_score: int
+    skill_match: dict
+    experience_match: dict
+    missing_skills: List[str]
+    weak_areas: List[str]
+    strengths: List[str]
+    suggestions: List[str]
+    keyword_analysis: dict
+    summary: str
+
+class JobMatchResponse(BaseModel):
+    id: str
+    user_id: str
+    resume_id: str
+    job_title: Optional[str] = None
+    company_name: Optional[str] = None
+    job_description: str
+    analysis: MatchAnalysis
+    created_at: str
 
 class MatchResponse(BaseModel):
     match_score: int
