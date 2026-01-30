@@ -47,7 +47,8 @@ Create a full-stack web application called "HireFlow AI" with user authenticatio
 - ✅ Landing Page: Hero section, features, stats, CTA
 - ✅ Auth Pages: Login and Register with form validation
 - ✅ Dashboard: Overview with stats, recent applications, quick actions
-- ✅ Resumes Page: Create, view, AI analyze with scoring
+- ✅ Resumes Page: Create, upload (PDF/DOCX), view, AI analyze with scoring
+- ✅ Job Match Page: Enhanced resume-to-job analysis with history
 - ✅ Applications Page: Table/Card views, search, filters, CRUD dialogs
 - ✅ Cover Letters Page: AI generation, view, copy, delete
 - ✅ Calendar Page: Calendar component, event management
