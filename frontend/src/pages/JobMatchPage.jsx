@@ -213,7 +213,7 @@ export default function JobMatchPage() {
                 </SelectTrigger>
                 <SelectContent>
                   {resumes.length === 0 ? (
-                    <SelectItem value="" disabled>No resumes available</SelectItem>
+                    <SelectItem value="no-resumes" disabled>No resumes available</SelectItem>
                   ) : (
                     resumes.map(r => (
                       <SelectItem key={r.id} value={r.id}>
