@@ -464,6 +464,90 @@ startxref
         except requests.exceptions.RequestException as e:
             return False, {"error": str(e)}
 
+    def test_job_match_analyze(self):
+        """Test job match analysis endpoint"""
+        if not hasattr(self, 'test_resume_id'):
+            self.log_test("Job Match Analysis", False, "No test resume ID available")
+            return False
+            
+        match_data = {
+            "resume_id": self.test_resume_id,
+            "job_title": "Senior Python Developer",
+            "company_name": "Tech Corp",
+            "job_description": "We are seeking a Senior Python Developer with 5+ years of experience in Python, Django, React, and AWS. The ideal candidate should have experience with microservices, API development, and cloud deployment. Strong communication skills and experience with agile methodologies are required."
+        }
+        
+        # Increase timeout for AI analysis
+        success, response = self.make_request_with_timeout('POST', 'match/analyze', match_data, timeout=45)
+        
+        if success and 'id' in response and 'analysis' in response:
+            analysis = response['analysis']
+            required_fields = ['match_score', 'skill_match', 'experience_match', 'missing_skills', 'weak_areas', 'strengths', 'suggestions', 'keyword_analysis', 'summary']
+            
+            # Check if all required analysis fields are present
+            missing_fields = [field for field in required_fields if field not in analysis]
+            if missing_fields:
+                self.log_test("Job Match Analysis", False, f"Missing analysis fields: {missing_fields}")
+                return False
+            
+            # Validate match_score is between 0-100
+            match_score = analysis.get('match_score', -1)
+            if not (0 <= match_score <= 100):
+                self.log_test("Job Match Analysis", False, f"Invalid match_score: {match_score}")
+                return False
+            
+            self.test_match_id = response['id']
+            self.log_test("Job Match Analysis", True)
+            return True
+        else:
+            self.log_test("Job Match Analysis", False, 
+                         f"Failed to analyze job match: {response}")
+            return False
+
+    def test_get_match_history(self):
+        """Test retrieving job match history"""
+        success, response = self.make_request('GET', 'match/history')
+        
+        if success and isinstance(response, list):
+            self.log_test("Get Match History", True)
+            return True
+        else:
+            self.log_test("Get Match History", False, 
+                         f"Failed to get match history: {response}")
+            return False
+
+    def test_get_single_match(self):
+        """Test retrieving a single job match analysis"""
+        if not hasattr(self, 'test_match_id'):
+            self.log_test("Get Single Match", False, "No test match ID available")
+            return False
+            
+        success, response = self.make_request('GET', f'match/{self.test_match_id}')
+        
+        if success and response.get('id') == self.test_match_id:
+            self.log_test("Get Single Match", True)
+            return True
+        else:
+            self.log_test("Get Single Match", False, 
+                         f"Failed to get single match: {response}")
+            return False
+
+    def test_delete_match_analysis(self):
+        """Test deleting a job match analysis"""
+        if not hasattr(self, 'test_match_id'):
+            self.log_test("Delete Match Analysis", False, "No test match ID available")
+            return False
+            
+        success, response = self.make_request('DELETE', f'match/{self.test_match_id}', expected_status=200)
+        
+        if success:
+            self.log_test("Delete Match Analysis", True)
+            return True
+        else:
+            self.log_test("Delete Match Analysis", False, 
+                         f"Failed to delete match analysis: {response}")
+            return False
+
     def test_delete_resume(self):
         """Test deleting a resume"""
         if not hasattr(self, 'test_resume_id'):
