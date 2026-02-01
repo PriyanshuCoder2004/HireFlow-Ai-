@@ -37,6 +37,7 @@ function App() {
               <Route index element={<DashboardPage />} />
               <Route path="resumes" element={<ResumesPage />} />
               <Route path="job-match" element={<JobMatchPage />} />
+              <Route path="interview-prep" element={<InterviewPrepPage />} />
               <Route path="applications" element={<ApplicationsPage />} />
               <Route path="cover-letters" element={<CoverLettersPage />} />
               <Route path="calendar" element={<CalendarPage />} />
