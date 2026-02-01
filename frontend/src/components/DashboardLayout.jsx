@@ -26,7 +26,8 @@ import {
   Menu,
   X,
   ChevronRight,
-  Target
+  Target,
+  GraduationCap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,6 +35,7 @@ const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", end: true },
   { to: "/dashboard/resumes", icon: FileText, label: "Resumes" },
   { to: "/dashboard/job-match", icon: Target, label: "Job Match" },
+  { to: "/dashboard/interview-prep", icon: GraduationCap, label: "Interview Prep" },
   { to: "/dashboard/applications", icon: Briefcase, label: "Applications" },
   { to: "/dashboard/cover-letters", icon: Mail, label: "Cover Letters" },
   { to: "/dashboard/calendar", icon: CalendarIcon, label: "Calendar" },
