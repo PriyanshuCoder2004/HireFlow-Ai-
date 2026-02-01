@@ -719,9 +719,16 @@ startxref
         self.test_get_match_history()
         self.test_get_single_match()
         
+        # Interview Preparation tests
+        self.test_generate_interview_prep()
+        self.test_get_interview_preps()
+        self.test_get_single_interview_prep()
+        self.test_regenerate_interview_prep()
+        
         # Cleanup tests
         self.test_delete_job_application()
         self.test_delete_match_analysis()
+        self.test_delete_interview_prep()
         self.test_delete_resume()
         
         # Print summary
