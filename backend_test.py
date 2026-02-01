@@ -548,6 +548,117 @@ startxref
                          f"Failed to delete match analysis: {response}")
             return False
 
+    def test_generate_interview_prep(self):
+        """Test generating interview preparation"""
+        if not hasattr(self, 'test_app_id') or not hasattr(self, 'test_resume_id'):
+            self.log_test("Generate Interview Prep", False, "Missing application or resume ID")
+            return False
+            
+        prep_data = {
+            "application_id": self.test_app_id,
+            "resume_id": self.test_resume_id,
+            "include_match_analysis": True
+        }
+        
+        # Increase timeout for AI generation
+        success, response = self.make_request_with_timeout('POST', 'interview-prep/generate', prep_data, timeout=60)
+        
+        if success and 'id' in response and 'analysis' in response:
+            analysis = response['analysis']
+            required_fields = ['hr_behavioral_questions', 'technical_questions', 'scenario_questions', 
+                             'weak_areas', 'general_tips', 'company_research_points', 'questions_to_ask']
+            
+            # Check if all required analysis fields are present
+            missing_fields = [field for field in required_fields if field not in analysis]
+            if missing_fields:
+                self.log_test("Generate Interview Prep", False, f"Missing analysis fields: {missing_fields}")
+                return False
+            
+            # Validate questions structure
+            for question_type in ['hr_behavioral_questions', 'technical_questions', 'scenario_questions']:
+                questions = analysis.get(question_type, [])
+                if questions and isinstance(questions, list):
+                    # Check first question structure
+                    first_q = questions[0]
+                    required_q_fields = ['question', 'category', 'difficulty', 'guidance', 'sample_points']
+                    missing_q_fields = [field for field in required_q_fields if field not in first_q]
+                    if missing_q_fields:
+                        self.log_test("Generate Interview Prep", False, 
+                                    f"Missing question fields in {question_type}: {missing_q_fields}")
+                        return False
+            
+            self.test_prep_id = response['id']
+            self.log_test("Generate Interview Prep", True)
+            return True
+        else:
+            self.log_test("Generate Interview Prep", False, 
+                         f"Failed to generate interview prep: {response}")
+            return False
+
+    def test_get_interview_preps(self):
+        """Test retrieving all interview preparations"""
+        success, response = self.make_request('GET', 'interview-prep')
+        
+        if success and isinstance(response, list):
+            self.log_test("Get Interview Preps", True)
+            return True
+        else:
+            self.log_test("Get Interview Preps", False, 
+                         f"Failed to get interview preps: {response}")
+            return False
+
+    def test_get_single_interview_prep(self):
+        """Test retrieving a single interview preparation"""
+        if not hasattr(self, 'test_prep_id'):
+            self.log_test("Get Single Interview Prep", False, "No test prep ID available")
+            return False
+            
+        success, response = self.make_request('GET', f'interview-prep/{self.test_prep_id}')
+        
+        if success and response.get('id') == self.test_prep_id:
+            self.log_test("Get Single Interview Prep", True)
+            return True
+        else:
+            self.log_test("Get Single Interview Prep", False, 
+                         f"Failed to get single interview prep: {response}")
+            return False
+
+    def test_regenerate_interview_prep(self):
+        """Test regenerating interview preparation"""
+        if not hasattr(self, 'test_prep_id'):
+            self.log_test("Regenerate Interview Prep", False, "No test prep ID available")
+            return False
+            
+        # Increase timeout for AI regeneration
+        success, response = self.make_request_with_timeout('POST', f'interview-prep/{self.test_prep_id}/regenerate', 
+                                                          timeout=60)
+        
+        if success and 'id' in response and 'analysis' in response:
+            # Update the prep ID as regeneration creates a new one
+            self.test_prep_id = response['id']
+            self.log_test("Regenerate Interview Prep", True)
+            return True
+        else:
+            self.log_test("Regenerate Interview Prep", False, 
+                         f"Failed to regenerate interview prep: {response}")
+            return False
+
+    def test_delete_interview_prep(self):
+        """Test deleting an interview preparation"""
+        if not hasattr(self, 'test_prep_id'):
+            self.log_test("Delete Interview Prep", False, "No test prep ID available")
+            return False
+            
+        success, response = self.make_request('DELETE', f'interview-prep/{self.test_prep_id}', expected_status=200)
+        
+        if success:
+            self.log_test("Delete Interview Prep", True)
+            return True
+        else:
+            self.log_test("Delete Interview Prep", False, 
+                         f"Failed to delete interview prep: {response}")
+            return False
+
     def test_delete_resume(self):
         """Test deleting a resume"""
         if not hasattr(self, 'test_resume_id'):
