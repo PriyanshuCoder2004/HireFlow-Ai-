@@ -1,9 +1,9 @@
 {
-  "timestamp": "2026-01-30T12:22:34.809764",
-  "total_tests": 22,
-  "passed_tests": 22,
-  "success_rate": "100.0%",
-  "all_passed": true,
+  "timestamp": "2026-02-01T10:10:04.484123",
+  "total_tests": 27,
+  "passed_tests": 19,
+  "success_rate": "70.4%",
+  "all_passed": false,
   "test_details": [
     {
       "test": "Health Check",
@@ -101,19 +101,44 @@
       "details": ""
     },
     {
+      "test": "Generate Interview Prep",
+      "success": false,
+      "details": "Failed to generate interview prep: {'error': \"HTTPSConnectionPool(host='talent-ai-13.preview.emergentagent.com', port=443): Read timed out. (read timeout=60)\"}"
+    },
+    {
+      "test": "Get Interview Preps",
+      "success": false,
+      "details": "Failed to get interview preps: {'error': \"HTTPSConnectionPool(host='talent-ai-13.preview.emergentagent.com', port=443): Read timed out. (read timeout=10)\"}"
+    },
+    {
+      "test": "Get Single Interview Prep",
+      "success": false,
+      "details": "No test prep ID available"
+    },
+    {
+      "test": "Regenerate Interview Prep",
+      "success": false,
+      "details": "No test prep ID available"
+    },
+    {
       "test": "Delete Job Application",
-      "success": true,
-      "details": ""
+      "success": false,
+      "details": "Failed to delete application: {'error': \"HTTPSConnectionPool(host='talent-ai-13.preview.emergentagent.com', port=443): Read timed out. (read timeout=10)\"}"
     },
     {
       "test": "Delete Match Analysis",
-      "success": true,
-      "details": ""
+      "success": false,
+      "details": "Failed to delete match analysis: {'error': \"HTTPSConnectionPool(host='talent-ai-13.preview.emergentagent.com', port=443): Read timed out. (read timeout=10)\"}"
+    },
+    {
+      "test": "Delete Interview Prep",
+      "success": false,
+      "details": "No test prep ID available"
     },
     {
       "test": "Delete Resume",
-      "success": true,
-      "details": ""
+      "success": false,
+      "details": "Failed to delete resume: {'error': \"HTTPSConnectionPool(host='talent-ai-13.preview.emergentagent.com', port=443): Read timed out. (read timeout=10)\"}"
     }
   ]
 }
