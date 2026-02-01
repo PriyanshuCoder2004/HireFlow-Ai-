@@ -14,6 +14,7 @@ import CoverLettersPage from "@/pages/CoverLettersPage";
 import CalendarPage from "@/pages/CalendarPage";
 import SettingsPage from "@/pages/SettingsPage";
 import JobMatchPage from "@/pages/JobMatchPage";
+import InterviewPrepPage from "@/pages/InterviewPrepPage";
 import "@/App.css";
 
 function App() {
