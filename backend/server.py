@@ -887,6 +887,272 @@ async def delete_event(event_id: str, current_user: dict = Depends(get_current_u
         raise HTTPException(status_code=404, detail="Event not found")
     return {"message": "Event deleted"}
 
+# ===================== INTERVIEW PREPARATION ROUTES =====================
+
+@api_router.post("/interview-prep/generate", response_model=InterviewPrepResponse)
+async def generate_interview_prep(request: InterviewPrepRequest, current_user: dict = Depends(get_current_user)):
+    """Generate comprehensive interview preparation based on job application and resume"""
+    
+    # Get the job application
+    application = await db.applications.find_one(
+        {"id": request.application_id, "user_id": current_user["id"]}, 
+        {"_id": 0}
+    )
+    if not application:
+        raise HTTPException(status_code=404, detail="Job application not found")
+    
+    # Get the resume
+    resume = await db.resumes.find_one(
+        {"id": request.resume_id, "user_id": current_user["id"]}, 
+        {"_id": 0}
+    )
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    
+    # Optionally get the most recent job match analysis for this resume
+    match_analysis = None
+    match_score = None
+    if request.include_match_analysis:
+        match = await db.job_matches.find_one(
+            {"user_id": current_user["id"], "resume_id": request.resume_id},
+            {"_id": 0}
+        )
+        if match:
+            match_analysis = match.get("analysis", {})
+            match_score = match_analysis.get("match_score")
+    
+    # Build context for AI
+    weak_areas_context = ""
+    if match_analysis:
+        missing_skills = match_analysis.get("missing_skills", [])
+        weak_areas = match_analysis.get("weak_areas", [])
+        if missing_skills or weak_areas:
+            weak_areas_context = f"""
+Based on previous analysis, the candidate has these gaps:
+- Missing Skills: {', '.join(missing_skills) if missing_skills else 'None identified'}
+- Weak Areas: {', '.join(weak_areas) if weak_areas else 'None identified'}
+
+Focus interview questions on these areas to help the candidate prepare.
+"""
+    
+    system_msg = """You are an expert interview coach and career advisor. Generate comprehensive interview preparation materials.
+
+Create a structured interview preparation guide with:
+
+1. HR/Behavioral Questions (5-7 questions):
+   - Questions about teamwork, leadership, conflict resolution, career goals
+   - Use STAR method guidance (Situation, Task, Action, Result)
+   - Include difficulty level
+
+2. Technical Questions (5-8 questions):
+   - Based on job requirements and technical skills needed
+   - Range from basic to advanced
+   - Include hints for answering
+
+3. Scenario-Based Questions (3-5 questions):
+   - Real-world problem-solving scenarios
+   - Role-specific challenges
+   - Include approach guidance
+
+4. Weak Areas to Prepare:
+   - Topics the candidate should study
+   - Specific preparation tips
+   - Learning resources if applicable
+
+5. General Tips:
+   - Interview best practices
+   - Company-specific advice
+
+6. Company Research Points:
+   - What to research about the company
+   - Industry trends to know
+
+7. Questions to Ask the Interviewer:
+   - Smart questions showing interest and preparation
+
+Respond ONLY in this exact JSON format:
+{
+    "hr_behavioral_questions": [
+        {
+            "question": "Tell me about a time...",
+            "category": "hr_behavioral",
+            "difficulty": "medium",
+            "guidance": ["Use STAR method", "Focus on your specific role", "Quantify results"],
+            "sample_points": ["Key point 1", "Key point 2"]
+        }
+    ],
+    "technical_questions": [
+        {
+            "question": "How would you...",
+            "category": "technical",
+            "difficulty": "medium",
+            "guidance": ["Explain concept first", "Give practical example"],
+            "sample_points": ["Technical point 1", "Technical point 2"]
+        }
+    ],
+    "scenario_questions": [
+        {
+            "question": "Imagine you are...",
+            "category": "scenario",
+            "difficulty": "hard",
+            "guidance": ["Break down the problem", "Consider stakeholders"],
+            "sample_points": ["Approach step 1", "Approach step 2"]
+        }
+    ],
+    "weak_areas": [
+        {
+            "topic": "Topic name",
+            "reason": "Why this needs preparation",
+            "preparation_tips": ["Tip 1", "Tip 2"],
+            "resources": ["Resource 1", "Resource 2"]
+        }
+    ],
+    "general_tips": ["Tip 1", "Tip 2"],
+    "company_research_points": ["Research point 1", "Research point 2"],
+    "questions_to_ask": ["Question 1", "Question 2"]
+}"""
+
+    user_msg = f"""Generate interview preparation for:
+
+POSITION: {application.get('position', 'Not specified')}
+COMPANY: {application.get('company', 'Not specified')}
+
+JOB DESCRIPTION:
+{application.get('job_description', 'No job description provided')}
+
+CANDIDATE'S RESUME:
+{resume.get('content', '')}
+
+{weak_areas_context}
+
+Create comprehensive, role-specific interview preparation materials."""
+
+    response = await get_llm_response(system_msg, user_msg)
+    
+    try:
+        import json
+        clean_response = response.strip()
+        if clean_response.startswith("```json"):
+            clean_response = clean_response[7:]
+        if clean_response.startswith("```"):
+            clean_response = clean_response[3:]
+        if clean_response.endswith("```"):
+            clean_response = clean_response[:-3]
+        prep_data = json.loads(clean_response.strip())
+        
+        # Parse and validate the response
+        analysis = InterviewPrepAnalysis(
+            hr_behavioral_questions=[InterviewQuestion(**q) for q in prep_data.get("hr_behavioral_questions", [])],
+            technical_questions=[InterviewQuestion(**q) for q in prep_data.get("technical_questions", [])],
+            scenario_questions=[InterviewQuestion(**q) for q in prep_data.get("scenario_questions", [])],
+            weak_areas=[WeakArea(**w) for w in prep_data.get("weak_areas", [])],
+            general_tips=prep_data.get("general_tips", []),
+            company_research_points=prep_data.get("company_research_points", []),
+            questions_to_ask=prep_data.get("questions_to_ask", [])
+        )
+    except Exception as e:
+        logger.error(f"Failed to parse interview prep response: {e}")
+        # Provide default structure
+        analysis = InterviewPrepAnalysis(
+            hr_behavioral_questions=[
+                InterviewQuestion(
+                    question="Tell me about yourself and why you're interested in this role.",
+                    category="hr_behavioral",
+                    difficulty="easy",
+                    guidance=["Keep it professional", "Connect to the role", "Be concise (2-3 minutes)"],
+                    sample_points=["Your background", "Relevant experience", "Why this company"]
+                )
+            ],
+            technical_questions=[
+                InterviewQuestion(
+                    question="Describe your technical background and key skills.",
+                    category="technical",
+                    difficulty="easy",
+                    guidance=["Focus on relevant skills", "Give examples"],
+                    sample_points=["Primary technologies", "Projects completed"]
+                )
+            ],
+            scenario_questions=[
+                InterviewQuestion(
+                    question="How would you handle a challenging project deadline?",
+                    category="scenario",
+                    difficulty="medium",
+                    guidance=["Show problem-solving", "Demonstrate leadership"],
+                    sample_points=["Prioritization", "Communication", "Delivery"]
+                )
+            ],
+            weak_areas=[],
+            general_tips=["Research the company", "Prepare questions", "Arrive early"],
+            company_research_points=["Company mission", "Recent news", "Products/services"],
+            questions_to_ask=["What does success look like in this role?", "What are the team dynamics?"]
+        )
+    
+    # Store in database
+    prep_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    prep_doc = {
+        "id": prep_id,
+        "user_id": current_user["id"],
+        "application_id": request.application_id,
+        "resume_id": request.resume_id,
+        "job_title": application.get("position", ""),
+        "company_name": application.get("company", ""),
+        "analysis": analysis.model_dump(),
+        "match_score": match_score,
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.interview_preps.insert_one(prep_doc)
+    logger.info(f"Interview prep generated: {prep_id} for user {current_user['id']}")
+    
+    return InterviewPrepResponse(**{k: v for k, v in prep_doc.items() if k != "_id"})
+
+@api_router.get("/interview-prep", response_model=List[InterviewPrepResponse])
+async def get_interview_preps(application_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+    """Get all interview preparations for the user, optionally filtered by application"""
+    query = {"user_id": current_user["id"]}
+    if application_id:
+        query["application_id"] = application_id
+    
+    preps = await db.interview_preps.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+    return [InterviewPrepResponse(**p) for p in preps]
+
+@api_router.get("/interview-prep/{prep_id}", response_model=InterviewPrepResponse)
+async def get_interview_prep(prep_id: str, current_user: dict = Depends(get_current_user)):
+    """Get a specific interview preparation"""
+    prep = await db.interview_preps.find_one({"id": prep_id, "user_id": current_user["id"]}, {"_id": 0})
+    if not prep:
+        raise HTTPException(status_code=404, detail="Interview preparation not found")
+    return InterviewPrepResponse(**prep)
+
+@api_router.delete("/interview-prep/{prep_id}")
+async def delete_interview_prep(prep_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete an interview preparation"""
+    result = await db.interview_preps.delete_one({"id": prep_id, "user_id": current_user["id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Interview preparation not found")
+    return {"message": "Interview preparation deleted"}
+
+@api_router.post("/interview-prep/{prep_id}/regenerate", response_model=InterviewPrepResponse)
+async def regenerate_interview_prep(prep_id: str, current_user: dict = Depends(get_current_user)):
+    """Regenerate interview preparation with fresh questions"""
+    existing = await db.interview_preps.find_one({"id": prep_id, "user_id": current_user["id"]}, {"_id": 0})
+    if not existing:
+        raise HTTPException(status_code=404, detail="Interview preparation not found")
+    
+    # Delete old and create new
+    await db.interview_preps.delete_one({"id": prep_id})
+    
+    request = InterviewPrepRequest(
+        application_id=existing["application_id"],
+        resume_id=existing["resume_id"],
+        include_match_analysis=True
+    )
+    
+    return await generate_interview_prep(request, current_user)
+
 # ===================== ANALYTICS ROUTES =====================
 
 @api_router.get("/analytics")
