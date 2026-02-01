@@ -187,6 +187,47 @@ class MatchResponse(BaseModel):
     gaps: List[str]
     suggestions: List[str]
 
+# ===================== INTERVIEW PREP MODELS =====================
+
+class InterviewQuestion(BaseModel):
+    question: str
+    category: str  # "hr_behavioral", "technical", "scenario"
+    difficulty: str  # "easy", "medium", "hard"
+    guidance: List[str]  # STAR method hints or bullet points
+    sample_points: List[str]  # Key points to cover
+
+class WeakArea(BaseModel):
+    topic: str
+    reason: str
+    preparation_tips: List[str]
+    resources: Optional[List[str]] = None
+
+class InterviewPrepAnalysis(BaseModel):
+    hr_behavioral_questions: List[InterviewQuestion]
+    technical_questions: List[InterviewQuestion]
+    scenario_questions: List[InterviewQuestion]
+    weak_areas: List[WeakArea]
+    general_tips: List[str]
+    company_research_points: List[str]
+    questions_to_ask: List[str]
+
+class InterviewPrepRequest(BaseModel):
+    application_id: str
+    resume_id: str
+    include_match_analysis: bool = True
+
+class InterviewPrepResponse(BaseModel):
+    id: str
+    user_id: str
+    application_id: str
+    resume_id: str
+    job_title: str
+    company_name: str
+    analysis: InterviewPrepAnalysis
+    match_score: Optional[int] = None
+    created_at: str
+    updated_at: str
+
 # ===================== HELPERS =====================
 
 def hash_password(password: str) -> str:
