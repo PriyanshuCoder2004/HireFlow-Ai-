@@ -721,8 +721,9 @@ async def check_and_send_reminders():
         time_1hr_end = now + timedelta(minutes=70)
         
         # Find events needing 24hr reminder
+        # CRITICAL: Only fetch events where reminders_enabled is explicitly True
         events_24hr = await db.calendar_events.find({
-            "reminders_enabled": True,
+            "reminders_enabled": {"$eq": True},  # Explicit True check
             "reminder_24hr_sent": {"$ne": True},
             "event_type": {"$in": ["interview", "phone_screen", "video_call"]},
             "start_date": {
@@ -733,7 +734,7 @@ async def check_and_send_reminders():
         
         # Find events needing 1hr reminder
         events_1hr = await db.calendar_events.find({
-            "reminders_enabled": True,
+            "reminders_enabled": {"$eq": True},  # Explicit True check
             "reminder_1hr_sent": {"$ne": True},
             "event_type": {"$in": ["interview", "phone_screen", "video_call"]},
             "start_date": {
