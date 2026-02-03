@@ -759,24 +759,44 @@ async def check_and_send_reminders():
 async def process_reminder(event: dict, reminder_type: str):
     """Process a single reminder"""
     try:
+        event_id = event.get("id")
+        
+        # CRITICAL: Re-fetch the event from database to get the latest reminders_enabled status
+        # This prevents sending reminders if user disabled them after the initial query
+        fresh_event = await db.calendar_events.find_one({"id": event_id}, {"_id": 0})
+        if not fresh_event:
+            logger.warning(f"Event {event_id} no longer exists, skipping reminder")
+            return
+        
+        # Final validation: Check if reminders are still enabled
+        if not fresh_event.get("reminders_enabled", False):
+            logger.info(f"Reminders disabled for event {event_id}, skipping {reminder_type} reminder")
+            return
+        
+        # Check if this specific reminder was already sent (in case of race condition)
+        reminder_sent_field = f"reminder_{reminder_type}_sent"
+        if fresh_event.get(reminder_sent_field, False):
+            logger.info(f"Reminder {reminder_type} already sent for event {event_id}, skipping")
+            return
+        
         # Get user info
-        user = await db.users.find_one({"id": event["user_id"]}, {"_id": 0})
+        user = await db.users.find_one({"id": fresh_event["user_id"]}, {"_id": 0})
         if not user:
-            logger.warning(f"User not found for event {event['id']}")
+            logger.warning(f"User not found for event {event_id}")
             return
         
         # Get job application info if linked
         company_name = "Company"
-        job_role = event.get("title", "Interview")
+        job_role = fresh_event.get("title", "Interview")
         
-        if event.get("job_application_id"):
-            app = await db.applications.find_one({"id": event["job_application_id"]}, {"_id": 0})
+        if fresh_event.get("job_application_id"):
+            app = await db.applications.find_one({"id": fresh_event["job_application_id"]}, {"_id": 0})
             if app:
                 company_name = app.get("company", company_name)
                 job_role = app.get("position", job_role)
         
         # Parse interview date/time
-        start_date = datetime.fromisoformat(event["start_date"].replace("Z", "+00:00"))
+        start_date = datetime.fromisoformat(fresh_event["start_date"].replace("Z", "+00:00"))
         interview_date = start_date.strftime("%B %d, %Y")
         interview_time = start_date.strftime("%I:%M %p")
         
@@ -788,21 +808,20 @@ async def process_reminder(event: dict, reminder_type: str):
             job_role=job_role,
             interview_date=interview_date,
             interview_time=interview_time,
-            interview_type=event.get("interview_type", event.get("event_type", "interview")),
-            location=event.get("location"),
-            meeting_link=event.get("meeting_link"),
+            interview_type=fresh_event.get("interview_type", fresh_event.get("event_type", "interview")),
+            location=fresh_event.get("location"),
+            meeting_link=fresh_event.get("meeting_link"),
             reminder_type=reminder_type,
-            event_id=event["id"],
-            user_id=event["user_id"],
-            job_application_id=event.get("job_application_id")
+            event_id=event_id,
+            user_id=fresh_event["user_id"],
+            job_application_id=fresh_event.get("job_application_id")
         )
         
         # Mark reminder as sent
         if result["status"] == "sent":
-            update_field = f"reminder_{reminder_type}_sent"
             await db.calendar_events.update_one(
-                {"id": event["id"]},
-                {"$set": {update_field: True}}
+                {"id": event_id},
+                {"$set": {reminder_sent_field: True}}
             )
             
     except Exception as e:
