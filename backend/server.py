@@ -2000,10 +2000,16 @@ async def startup_event():
             'interval',
             minutes=5,
             id='reminder_check',
-            replace_existing=True
+            replace_existing=True,
+            next_run_time=datetime.now(timezone.utc) + timedelta(seconds=30)  # First run in 30 seconds
         )
         scheduler.start()
-        logger.info("Email reminder scheduler started - checking every 5 minutes")
+        logger.info("=" * 50)
+        logger.info("Email reminder scheduler started")
+        logger.info(f"  - Check interval: every 5 minutes")
+        logger.info(f"  - First check in: 30 seconds")
+        logger.info(f"  - Server time (UTC): {datetime.now(timezone.utc).isoformat()}")
+        logger.info("=" * 50)
     else:
         logger.warning("RESEND_API_KEY not configured - email reminders disabled")
 
