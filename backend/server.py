@@ -146,21 +146,29 @@ class CoverLetterResponse(BaseModel):
 class CalendarEventCreate(BaseModel):
     title: str
     description: Optional[str] = None
-    event_type: str = "interview"
+    event_type: str = "interview"  # interview, phone_screen, video_call, follow_up, other
+    interview_type: Optional[str] = None  # hr, technical, managerial, final, other
     start_date: str
     end_date: Optional[str] = None
     job_application_id: Optional[str] = None
     location: Optional[str] = None
+    meeting_link: Optional[str] = None
     notes: Optional[str] = None
+    reminders_enabled: bool = True
+    reminder_24hr_sent: bool = False
+    reminder_1hr_sent: bool = False
 
 class CalendarEventUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     event_type: Optional[str] = None
+    interview_type: Optional[str] = None
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     location: Optional[str] = None
+    meeting_link: Optional[str] = None
     notes: Optional[str] = None
+    reminders_enabled: Optional[bool] = None
 
 class CalendarEventResponse(BaseModel):
     id: str
@@ -168,12 +176,35 @@ class CalendarEventResponse(BaseModel):
     title: str
     description: Optional[str] = None
     event_type: str
+    interview_type: Optional[str] = None
     start_date: str
     end_date: Optional[str] = None
     job_application_id: Optional[str] = None
     location: Optional[str] = None
+    meeting_link: Optional[str] = None
     notes: Optional[str] = None
+    reminders_enabled: bool = True
+    reminder_24hr_sent: bool = False
+    reminder_1hr_sent: bool = False
     created_at: str
+
+# ===================== NOTIFICATION MODELS =====================
+
+class NotificationLog(BaseModel):
+    id: str
+    user_id: str
+    event_id: str
+    job_application_id: Optional[str] = None
+    reminder_type: str  # "24hr" or "1hr"
+    delivery_status: str  # "sent", "failed", "pending"
+    error_message: Optional[str] = None
+    sent_timestamp: Optional[str] = None
+    created_at: str
+
+class NotificationPreferences(BaseModel):
+    email_reminders_enabled: bool = True
+    reminder_24hr: bool = True
+    reminder_1hr: bool = True
 
 class MatchRequest(BaseModel):
     resume_id: str
