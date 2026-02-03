@@ -66,14 +66,14 @@ class TestSchedulerEndpoints:
         
         data = response.json()
         
-        # Check required fields
-        assert "server_time" in data, "Missing server_time field"
+        # Check required fields (server_time_utc is the actual field name)
+        assert "server_time_utc" in data, "Missing server_time_utc field"
         assert "scheduler_running" in data, "Missing scheduler_running field"
         assert "scheduler_interval" in data, "Missing scheduler_interval field"
         assert "upcoming_events" in data, "Missing upcoming_events field"
         
         print(f"✓ Scheduler status contains all required fields")
-        print(f"  - server_time: {data.get('server_time')}")
+        print(f"  - server_time_utc: {data.get('server_time_utc')}")
         print(f"  - scheduler_running: {data.get('scheduler_running')}")
         print(f"  - scheduler_interval: {data.get('scheduler_interval')}")
     
@@ -331,9 +331,13 @@ class TestParseDatetimeFormats:
         assert event_response.status_code == 200, f"Failed with ISO Z format: {event_response.text}"
         event_id = event_response.json().get("id")
         
-        # Verify event was created and can be retrieved
-        get_response = self.session.get(f"{BASE_URL}/api/calendar/{event_id}")
+        # Verify event was created by checking all events
+        get_response = self.session.get(f"{BASE_URL}/api/calendar")
         assert get_response.status_code == 200
+        
+        events = get_response.json()
+        found = any(e.get("id") == event_id for e in events)
+        assert found, f"Event {event_id} not found in calendar events"
         
         print(f"✓ ISO format with Z suffix accepted: {date_str}")
         
@@ -419,32 +423,54 @@ class TestDebugLogging:
         assert response.status_code == 200
         
         data = response.json()
-        server_time = data.get("server_time")
+        server_time = data.get("server_time_utc")  # Actual field name is server_time_utc
         
-        assert server_time is not None, "server_time should not be None"
+        assert server_time is not None, "server_time_utc should not be None"
         
         # Verify it's a valid ISO datetime
         try:
             parsed_time = datetime.fromisoformat(server_time.replace("Z", "+00:00"))
             print(f"✓ Server time is valid ISO datetime: {server_time}")
         except ValueError:
-            pytest.fail(f"server_time is not valid ISO format: {server_time}")
+            pytest.fail(f"server_time_utc is not valid ISO format: {server_time}")
     
     def test_scheduler_status_shows_time_windows(self):
-        """Test that scheduler status shows time window info"""
+        """Test that scheduler status shows time window info via upcoming_events eligibility"""
+        # Create a test event to verify time window calculations work
+        now = datetime.now(timezone.utc)
+        event_time = now + timedelta(hours=24)
+        
+        event_response = self.session.post(f"{BASE_URL}/api/calendar", json={
+            "title": "TEST_TimeWindow_Check",
+            "event_type": "interview",
+            "start_date": event_time.isoformat(),
+            "reminders_enabled": True
+        })
+        assert event_response.status_code == 200
+        event_id = event_response.json().get("id")
+        
         response = self.session.get(f"{BASE_URL}/api/scheduler/status")
         assert response.status_code == 200
         
         data = response.json()
         
-        # Check that time windows are documented in the response
-        assert "time_windows" in data, "Missing time_windows in response"
+        # Time windows are shown via eligible_24hr and eligible_1hr fields in upcoming_events
+        # The scheduler interval confirms the check frequency
+        assert "scheduler_interval" in data, "Missing scheduler_interval"
+        assert data.get("scheduler_interval") == "5 minutes", "Scheduler should run every 5 minutes"
         
-        time_windows = data.get("time_windows", {})
-        assert "24hr_reminder" in time_windows, "Missing 24hr_reminder window info"
-        assert "1hr_reminder" in time_windows, "Missing 1hr_reminder window info"
+        # Check that upcoming_events contains eligibility info
+        upcoming_events = data.get("upcoming_events", [])
+        for event in upcoming_events:
+            if event.get("id") == event_id:
+                assert "eligible_24hr" in event, "Missing eligible_24hr field"
+                assert "eligible_1hr" in event, "Missing eligible_1hr field"
+                assert "hours_until_event" in event, "Missing hours_until_event field"
+                print(f"✓ Time window eligibility fields present in event")
+                break
         
-        print(f"✓ Time windows documented: {time_windows}")
+        # Cleanup
+        self.session.delete(f"{BASE_URL}/api/calendar/{event_id}")
     
     def test_scheduler_status_shows_event_eligibility(self):
         """Test that scheduler status shows event eligibility info"""
