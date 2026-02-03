@@ -494,10 +494,28 @@ export default function ResumesPage() {
                   </p>
                 )}
                 
+                {/* Extraction method indicator */}
                 {resume.file_type && (
-                  <div className="text-xs text-muted-foreground flex items-center gap-1">
-                    <CheckCircle2 className="h-3 w-3 text-green-500" />
-                    Text extracted from {resume.file_type.toUpperCase()}
+                  <div className="space-y-1">
+                    <div className="text-xs text-muted-foreground flex items-center gap-1">
+                      {resume.ocr_used ? (
+                        <>
+                          <Scan className="h-3 w-3 text-blue-500" />
+                          <span>OCR extracted from {resume.file_type.toUpperCase()}</span>
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="h-3 w-3 text-green-500" />
+                          <span>Parsed from {resume.file_type.toUpperCase()}</span>
+                        </>
+                      )}
+                    </div>
+                    {resume.extraction_status === "partial" && (
+                      <div className="text-xs text-yellow-600 flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3" />
+                        <span>Partial extraction - some text may be missing</span>
+                      </div>
+                    )}
                   </div>
                 )}
                 
