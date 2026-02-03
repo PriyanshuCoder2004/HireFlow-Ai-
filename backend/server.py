@@ -1441,14 +1441,28 @@ async def get_events(month: Optional[str] = None, current_user: dict = Depends(g
 
 @api_router.put("/calendar/{event_id}", response_model=CalendarEventResponse)
 async def update_event(event_id: str, event_data: CalendarEventUpdate, current_user: dict = Depends(get_current_user)):
-    update_data = {k: v for k, v in event_data.model_dump().items() if v is not None}
+    # Build update data - handle boolean False values correctly (don't filter them out)
+    update_data = {}
+    for k, v in event_data.model_dump().items():
+        # Include field if it's not None, OR if it's a boolean (False is a valid value)
+        if v is not None or isinstance(v, bool):
+            if v is not None:  # Only add non-None values
+                update_data[k] = v
+    
     if not update_data:
         raise HTTPException(status_code=400, detail="No update data provided")
     
-    # If start_date is changed, reset reminder flags
+    # If start_date is changed, reset reminder flags so they can be sent again
     if "start_date" in update_data:
         update_data["reminder_24hr_sent"] = False
         update_data["reminder_1hr_sent"] = False
+    
+    # CRITICAL: If reminders are being disabled, mark all reminders as "sent" 
+    # to prevent the background scheduler from sending them
+    if "reminders_enabled" in update_data and update_data["reminders_enabled"] is False:
+        update_data["reminder_24hr_sent"] = True  # Prevents future 24hr reminder
+        update_data["reminder_1hr_sent"] = True   # Prevents future 1hr reminder
+        logger.info(f"Reminders disabled for event {event_id}, marking reminders as complete to prevent sending")
     
     result = await db.calendar_events.update_one(
         {"id": event_id, "user_id": current_user["id"]},
