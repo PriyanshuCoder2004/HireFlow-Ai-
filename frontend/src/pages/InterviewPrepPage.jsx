@@ -783,6 +783,7 @@ export default function InterviewPrepPage() {
           </ScrollArea>
         </DialogContent>
       </Dialog>
+      )}
 
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
