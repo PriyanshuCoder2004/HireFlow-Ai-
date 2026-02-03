@@ -1426,6 +1426,11 @@ async def update_event(event_id: str, event_data: CalendarEventUpdate, current_u
     if not update_data:
         raise HTTPException(status_code=400, detail="No update data provided")
     
+    # If start_date is changed, reset reminder flags
+    if "start_date" in update_data:
+        update_data["reminder_24hr_sent"] = False
+        update_data["reminder_1hr_sent"] = False
+    
     result = await db.calendar_events.update_one(
         {"id": event_id, "user_id": current_user["id"]},
         {"$set": update_data}
