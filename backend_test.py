@@ -1,15 +1,17 @@
 #!/usr/bin/env python3
 """
 HireFlow AI Backend API Testing Suite
-Tests all authentication and job application CRUD operations
+Tests all authentication, resume OCR functionality, and job application CRUD operations
 """
 
 import requests
 import sys
 import json
 import io
+import tempfile
 from datetime import datetime
 from typing import Dict, Any, Optional
+from PIL import Image, ImageDraw, ImageFont
 
 class HireFlowAPITester:
     def __init__(self, base_url: str = "https://talent-ai-13.preview.emergentagent.com"):
