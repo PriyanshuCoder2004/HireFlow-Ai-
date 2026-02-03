@@ -1449,6 +1449,62 @@ async def delete_event(event_id: str, current_user: dict = Depends(get_current_u
         raise HTTPException(status_code=404, detail="Event not found")
     return {"message": "Event deleted"}
 
+@api_router.post("/calendar/{event_id}/test-reminder")
+async def send_test_reminder(event_id: str, current_user: dict = Depends(get_current_user)):
+    """Send a test reminder email for an event (for testing purposes)"""
+    event = await db.calendar_events.find_one({"id": event_id, "user_id": current_user["id"]}, {"_id": 0})
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+    
+    if not RESEND_API_KEY:
+        raise HTTPException(status_code=503, detail="Email service not configured")
+    
+    # Get user info
+    user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0})
+    
+    # Get job application info if linked
+    company_name = "Your Company"
+    job_role = event.get("title", "Interview")
+    
+    if event.get("job_application_id"):
+        app = await db.applications.find_one({"id": event["job_application_id"]}, {"_id": 0})
+        if app:
+            company_name = app.get("company", company_name)
+            job_role = app.get("position", job_role)
+    
+    # Parse interview date/time
+    start_date = datetime.fromisoformat(event["start_date"].replace("Z", "+00:00"))
+    interview_date = start_date.strftime("%B %d, %Y")
+    interview_time = start_date.strftime("%I:%M %p")
+    
+    # Send test reminder
+    result = await send_interview_reminder(
+        user_email=user["email"],
+        candidate_name=user["name"],
+        company_name=company_name,
+        job_role=job_role,
+        interview_date=interview_date,
+        interview_time=interview_time,
+        interview_type=event.get("interview_type", event.get("event_type", "interview")),
+        location=event.get("location"),
+        meeting_link=event.get("meeting_link"),
+        reminder_type="test",
+        event_id=event["id"],
+        user_id=current_user["id"],
+        job_application_id=event.get("job_application_id")
+    )
+    
+    return {"message": "Test reminder sent", "result": result}
+
+@api_router.get("/notifications/logs")
+async def get_notification_logs(current_user: dict = Depends(get_current_user)):
+    """Get notification logs for the current user"""
+    logs = await db.notification_logs.find(
+        {"user_id": current_user["id"]}, 
+        {"_id": 0}
+    ).sort("created_at", -1).to_list(50)
+    return logs
+
 # ===================== INTERVIEW PREPARATION ROUTES =====================
 
 @api_router.post("/interview-prep/generate", response_model=InterviewPrepResponse)
