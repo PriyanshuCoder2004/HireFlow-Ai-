@@ -500,6 +500,314 @@ def extract_text_from_docx(file_content: bytes) -> ExtractionResult:
             ocr_used=False
         )
 
+# ===================== EMAIL NOTIFICATION SYSTEM =====================
+
+def generate_interview_reminder_email(
+    candidate_name: str,
+    company_name: str,
+    job_role: str,
+    interview_date: str,
+    interview_time: str,
+    interview_type: str,
+    location: str,
+    meeting_link: str,
+    reminder_type: str
+) -> tuple:
+    """Generate professional interview reminder email"""
+    
+    time_message = "24 hours" if reminder_type == "24hr" else "1 hour"
+    interview_type_display = interview_type.replace("_", " ").title() if interview_type else "Interview"
+    
+    subject = f"⏰ Reminder: {interview_type_display} at {company_name} in {time_message}"
+    
+    location_section = ""
+    if meeting_link:
+        location_section = f"""
+        <tr>
+            <td style="padding: 8px 0; color: #64748b;">Meeting Link:</td>
+            <td style="padding: 8px 0;"><a href="{meeting_link}" style="color: #6366f1;">{meeting_link}</a></td>
+        </tr>
+        """
+    elif location:
+        location_section = f"""
+        <tr>
+            <td style="padding: 8px 0; color: #64748b;">Location:</td>
+            <td style="padding: 8px 0;">{location}</td>
+        </tr>
+        """
+    
+    html_body = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    </head>
+    <body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f8fafc;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+            <div style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); padding: 30px; border-radius: 16px 16px 0 0; text-align: center;">
+                <h1 style="color: white; margin: 0; font-size: 24px;">Interview Reminder</h1>
+                <p style="color: rgba(255,255,255,0.9); margin: 10px 0 0 0;">Your interview is coming up!</p>
+            </div>
+            
+            <div style="background: white; padding: 30px; border-radius: 0 0 16px 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <p style="font-size: 16px; color: #334155; margin-bottom: 20px;">
+                    Hi <strong>{candidate_name}</strong>,
+                </p>
+                
+                <p style="font-size: 16px; color: #334155; margin-bottom: 25px;">
+                    This is a friendly reminder that your <strong>{interview_type_display}</strong> at <strong>{company_name}</strong> is scheduled in <strong>{time_message}</strong>.
+                </p>
+                
+                <div style="background: #f8fafc; border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+                    <h3 style="color: #1e293b; margin: 0 0 15px 0; font-size: 16px;">📋 Interview Details</h3>
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <tr>
+                            <td style="padding: 8px 0; color: #64748b; width: 120px;">Company:</td>
+                            <td style="padding: 8px 0; font-weight: 600;">{company_name}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #64748b;">Position:</td>
+                            <td style="padding: 8px 0;">{job_role}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #64748b;">Date:</td>
+                            <td style="padding: 8px 0;">{interview_date}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #64748b;">Time:</td>
+                            <td style="padding: 8px 0;">{interview_time}</td>
+                        </tr>
+                        <tr>
+                            <td style="padding: 8px 0; color: #64748b;">Type:</td>
+                            <td style="padding: 8px 0;">{interview_type_display}</td>
+                        </tr>
+                        {location_section}
+                    </table>
+                </div>
+                
+                <div style="background: #fef3c7; border-radius: 12px; padding: 20px; margin-bottom: 25px; border-left: 4px solid #f59e0b;">
+                    <h3 style="color: #92400e; margin: 0 0 10px 0; font-size: 14px;">💡 Quick Preparation Tips</h3>
+                    <ul style="color: #78350f; margin: 0; padding-left: 20px; font-size: 14px;">
+                        <li>Review the job description and your resume</li>
+                        <li>Prepare questions to ask the interviewer</li>
+                        <li>Test your equipment if it's a video call</li>
+                        <li>Have a copy of your resume ready</li>
+                    </ul>
+                </div>
+                
+                <p style="font-size: 14px; color: #64748b; margin-bottom: 0;">
+                    Good luck with your interview! 🍀
+                </p>
+            </div>
+            
+            <div style="text-align: center; padding: 20px;">
+                <p style="color: #94a3b8; font-size: 12px; margin: 0;">
+                    Sent by HireFlow AI • Your AI-powered job search assistant
+                </p>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return subject, html_body
+
+async def send_interview_reminder(
+    user_email: str,
+    candidate_name: str,
+    company_name: str,
+    job_role: str,
+    interview_date: str,
+    interview_time: str,
+    interview_type: str,
+    location: str,
+    meeting_link: str,
+    reminder_type: str,
+    event_id: str,
+    user_id: str,
+    job_application_id: str = None,
+    retry: bool = True
+) -> dict:
+    """Send interview reminder email with retry logic"""
+    
+    if not RESEND_API_KEY:
+        logger.warning("RESEND_API_KEY not configured, skipping email")
+        return {"status": "skipped", "message": "Email service not configured"}
+    
+    subject, html_body = generate_interview_reminder_email(
+        candidate_name=candidate_name,
+        company_name=company_name,
+        job_role=job_role,
+        interview_date=interview_date,
+        interview_time=interview_time,
+        interview_type=interview_type,
+        location=location or "",
+        meeting_link=meeting_link or "",
+        reminder_type=reminder_type
+    )
+    
+    notification_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    notification_doc = {
+        "id": notification_id,
+        "user_id": user_id,
+        "event_id": event_id,
+        "job_application_id": job_application_id,
+        "reminder_type": reminder_type,
+        "delivery_status": "pending",
+        "error_message": None,
+        "sent_timestamp": None,
+        "recipient_email": user_email,
+        "created_at": now
+    }
+    
+    try:
+        # Send email via Resend
+        params = {
+            "from": SENDER_EMAIL,
+            "to": [user_email],
+            "subject": subject,
+            "html": html_body
+        }
+        
+        email_response = resend.Emails.send(params)
+        
+        notification_doc["delivery_status"] = "sent"
+        notification_doc["sent_timestamp"] = datetime.now(timezone.utc).isoformat()
+        notification_doc["resend_id"] = email_response.get("id") if isinstance(email_response, dict) else str(email_response)
+        
+        await db.notification_logs.insert_one(notification_doc)
+        logger.info(f"Email reminder sent: {reminder_type} for event {event_id} to {user_email}")
+        
+        return {"status": "sent", "notification_id": notification_id}
+        
+    except Exception as e:
+        error_msg = str(e)
+        logger.error(f"Email send failed: {error_msg}")
+        
+        if retry:
+            # Retry once
+            logger.info("Retrying email send...")
+            try:
+                email_response = resend.Emails.send(params)
+                notification_doc["delivery_status"] = "sent"
+                notification_doc["sent_timestamp"] = datetime.now(timezone.utc).isoformat()
+                notification_doc["resend_id"] = email_response.get("id") if isinstance(email_response, dict) else str(email_response)
+                await db.notification_logs.insert_one(notification_doc)
+                logger.info(f"Email retry successful for event {event_id}")
+                return {"status": "sent", "notification_id": notification_id}
+            except Exception as retry_error:
+                error_msg = f"Original: {error_msg}, Retry: {str(retry_error)}"
+        
+        notification_doc["delivery_status"] = "failed"
+        notification_doc["error_message"] = error_msg
+        await db.notification_logs.insert_one(notification_doc)
+        
+        return {"status": "failed", "error": error_msg, "notification_id": notification_id}
+
+async def check_and_send_reminders():
+    """Background job to check upcoming interviews and send reminders"""
+    try:
+        now = datetime.now(timezone.utc)
+        
+        # Check for events needing 24hr reminder (between 23-25 hours from now)
+        time_24hr_start = now + timedelta(hours=23)
+        time_24hr_end = now + timedelta(hours=25)
+        
+        # Check for events needing 1hr reminder (between 50-70 minutes from now)
+        time_1hr_start = now + timedelta(minutes=50)
+        time_1hr_end = now + timedelta(minutes=70)
+        
+        # Find events needing 24hr reminder
+        events_24hr = await db.calendar_events.find({
+            "reminders_enabled": True,
+            "reminder_24hr_sent": {"$ne": True},
+            "event_type": {"$in": ["interview", "phone_screen", "video_call"]},
+            "start_date": {
+                "$gte": time_24hr_start.isoformat(),
+                "$lte": time_24hr_end.isoformat()
+            }
+        }, {"_id": 0}).to_list(100)
+        
+        # Find events needing 1hr reminder
+        events_1hr = await db.calendar_events.find({
+            "reminders_enabled": True,
+            "reminder_1hr_sent": {"$ne": True},
+            "event_type": {"$in": ["interview", "phone_screen", "video_call"]},
+            "start_date": {
+                "$gte": time_1hr_start.isoformat(),
+                "$lte": time_1hr_end.isoformat()
+            }
+        }, {"_id": 0}).to_list(100)
+        
+        # Process 24hr reminders
+        for event in events_24hr:
+            await process_reminder(event, "24hr")
+        
+        # Process 1hr reminders
+        for event in events_1hr:
+            await process_reminder(event, "1hr")
+        
+        if events_24hr or events_1hr:
+            logger.info(f"Reminder check complete: {len(events_24hr)} 24hr, {len(events_1hr)} 1hr reminders processed")
+            
+    except Exception as e:
+        logger.error(f"Reminder check failed: {e}")
+
+async def process_reminder(event: dict, reminder_type: str):
+    """Process a single reminder"""
+    try:
+        # Get user info
+        user = await db.users.find_one({"id": event["user_id"]}, {"_id": 0})
+        if not user:
+            logger.warning(f"User not found for event {event['id']}")
+            return
+        
+        # Get job application info if linked
+        company_name = "Company"
+        job_role = event.get("title", "Interview")
+        
+        if event.get("job_application_id"):
+            app = await db.applications.find_one({"id": event["job_application_id"]}, {"_id": 0})
+            if app:
+                company_name = app.get("company", company_name)
+                job_role = app.get("position", job_role)
+        
+        # Parse interview date/time
+        start_date = datetime.fromisoformat(event["start_date"].replace("Z", "+00:00"))
+        interview_date = start_date.strftime("%B %d, %Y")
+        interview_time = start_date.strftime("%I:%M %p")
+        
+        # Send reminder
+        result = await send_interview_reminder(
+            user_email=user["email"],
+            candidate_name=user["name"],
+            company_name=company_name,
+            job_role=job_role,
+            interview_date=interview_date,
+            interview_time=interview_time,
+            interview_type=event.get("interview_type", event.get("event_type", "interview")),
+            location=event.get("location"),
+            meeting_link=event.get("meeting_link"),
+            reminder_type=reminder_type,
+            event_id=event["id"],
+            user_id=event["user_id"],
+            job_application_id=event.get("job_application_id")
+        )
+        
+        # Mark reminder as sent
+        if result["status"] == "sent":
+            update_field = f"reminder_{reminder_type}_sent"
+            await db.calendar_events.update_one(
+                {"id": event["id"]},
+                {"$set": {update_field: True}}
+            )
+            
+    except Exception as e:
+        logger.error(f"Failed to process reminder for event {event.get('id')}: {e}")
+
 # ===================== AUTH ROUTES =====================
 
 @api_router.post("/auth/register", response_model=TokenResponse)
