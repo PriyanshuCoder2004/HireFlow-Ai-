@@ -84,13 +84,19 @@ export default function ResumesPage() {
   const handleFileSelect = (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Validate file type
-      const validTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
-      const validExtensions = ['pdf', 'docx'];
+      // Validate file type - now supports images for OCR
+      const validTypes = [
+        'application/pdf', 
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'image/png',
+        'image/jpeg',
+        'image/jpg'
+      ];
+      const validExtensions = ['pdf', 'docx', 'png', 'jpg', 'jpeg'];
       const fileExt = file.name.split('.').pop()?.toLowerCase();
       
       if (!validTypes.includes(file.type) && !validExtensions.includes(fileExt)) {
-        toast.error("Please upload a PDF or DOCX file");
+        toast.error("Please upload a PDF, DOCX, or image file (PNG/JPG)");
         return;
       }
       
