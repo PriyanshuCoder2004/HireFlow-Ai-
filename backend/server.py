@@ -6,6 +6,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 import os
 import logging
 import io
+import re
+import tempfile
 from pathlib import Path
 from pydantic import BaseModel, Field, EmailStr
 from typing import List, Optional
@@ -16,6 +18,9 @@ import bcrypt
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 import PyPDF2
 from docx import Document
+import pytesseract
+from pdf2image import convert_from_bytes
+from PIL import Image
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
