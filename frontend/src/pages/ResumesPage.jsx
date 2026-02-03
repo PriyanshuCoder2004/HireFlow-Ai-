@@ -140,7 +140,18 @@ export default function ResumesPage() {
       setResumes([response.data, ...resumes]);
       setCreateOpen(false);
       resetForm();
-      toast.success("Resume uploaded successfully! Text has been extracted.");
+      
+      // Show appropriate message based on extraction method
+      if (response.data.ocr_used) {
+        toast.success("Resume uploaded! We used advanced OCR to read your document.", {
+          description: response.data.extraction_status === "partial" 
+            ? "Some text may be imperfect. Consider uploading an ATS-friendly format."
+            : "Text extracted successfully using OCR.",
+          duration: 5000
+        });
+      } else {
+        toast.success("Resume uploaded successfully! Text has been extracted.");
+      }
     } catch (error) {
       console.error(error);
       toast.error(error.response?.data?.detail || "Failed to upload resume");
