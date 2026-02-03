@@ -416,7 +416,8 @@ export default function InterviewPrepPage() {
       </div>
 
       {/* View Preparation Dialog */}
-      <Dialog open={viewOpen} onOpenChange={setViewOpen}>
+      {selectedPrep && (
+        <Dialog open={viewOpen} onOpenChange={setViewOpen}>
         <DialogContent className="max-w-5xl max-h-[90vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3">
