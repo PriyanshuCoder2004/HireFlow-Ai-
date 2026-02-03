@@ -513,6 +513,9 @@ async def create_resume(resume_data: ResumeCreate, current_user: dict = Depends(
         "content": resume_data.content,
         "file_name": None,
         "file_type": None,
+        "extraction_method": "manual",
+        "extraction_status": "success",
+        "ocr_used": False,
         "analysis": None,
         "score": None,
         "created_at": now,
@@ -528,22 +531,25 @@ async def upload_resume(
     title: str = Form(...),
     current_user: dict = Depends(get_current_user)
 ):
-    """Upload a PDF or DOCX resume file and extract text content"""
+    """Upload a PDF or DOCX resume file and extract text content with OCR fallback"""
     # Validate file type
     allowed_types = {
         "application/pdf": "pdf",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
-        "application/msword": "doc"
+        "application/msword": "doc",
+        "image/png": "png",
+        "image/jpeg": "jpg",
+        "image/jpg": "jpg"
     }
     
     content_type = file.content_type
     if content_type not in allowed_types:
         # Also check by file extension
         file_ext = file.filename.lower().split(".")[-1] if file.filename else ""
-        if file_ext not in ["pdf", "docx", "doc"]:
+        if file_ext not in ["pdf", "docx", "doc", "png", "jpg", "jpeg"]:
             raise HTTPException(
                 status_code=400, 
-                detail="Invalid file type. Please upload a PDF or DOCX file."
+                detail="Invalid file type. Please upload a PDF, DOCX, or image file."
             )
         file_type = file_ext
     else:
@@ -556,21 +562,57 @@ async def upload_resume(
     if len(file_content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="File size exceeds 10MB limit")
     
-    # Extract text based on file type
+    # Extract text based on file type with OCR fallback
+    extraction_result = None
+    
     if file_type == "pdf":
-        extracted_text = extract_text_from_pdf(file_content)
+        logger.info(f"Processing PDF file: {file.filename}")
+        extraction_result = extract_text_from_pdf(file_content)
     elif file_type in ["docx", "doc"]:
-        extracted_text = extract_text_from_docx(file_content)
+        logger.info(f"Processing DOCX file: {file.filename}")
+        extraction_result = extract_text_from_docx(file_content)
+    elif file_type in ["png", "jpg", "jpeg"]:
+        logger.info(f"Processing image file with OCR: {file.filename}")
+        ocr_text = extract_text_from_image_ocr(file_content)
+        if is_text_readable(ocr_text):
+            extraction_result = ExtractionResult(
+                text=ocr_text,
+                method="ocr",
+                status="success",
+                ocr_used=True
+            )
+        elif ocr_text:
+            extraction_result = ExtractionResult(
+                text=ocr_text,
+                method="ocr",
+                status="partial",
+                ocr_used=True
+            )
+        else:
+            extraction_result = ExtractionResult(
+                text="",
+                method="failed",
+                status="failed",
+                ocr_used=True
+            )
     else:
         raise HTTPException(status_code=400, detail="Unsupported file format")
     
-    if not extracted_text or len(extracted_text.strip()) < 50:
+    # Handle extraction failures
+    if extraction_result.status == "failed":
         raise HTTPException(
             status_code=400, 
-            detail="Could not extract sufficient text from the file. Please ensure the file contains readable text."
+            detail="Could not extract text from the file. Please upload an ATS-friendly resume (searchable PDF or DOCX) with clear, readable text."
         )
     
-    # Create resume record
+    # Warn about partial extraction but still process
+    if extraction_result.status == "partial" and len(extraction_result.text) < 50:
+        raise HTTPException(
+            status_code=400, 
+            detail="Extracted text is too short. Please upload a resume with more content, preferably in DOCX or searchable PDF format."
+        )
+    
+    # Create resume record with extraction metadata
     resume_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc).isoformat()
     
@@ -578,9 +620,12 @@ async def upload_resume(
         "id": resume_id,
         "user_id": current_user["id"],
         "title": title,
-        "content": extracted_text,
+        "content": extraction_result.text,
         "file_name": file.filename,
         "file_type": file_type,
+        "extraction_method": extraction_result.method,
+        "extraction_status": extraction_result.status,
+        "ocr_used": extraction_result.ocr_used,
         "analysis": None,
         "score": None,
         "created_at": now,
@@ -588,7 +633,9 @@ async def upload_resume(
     }
     
     await db.resumes.insert_one(resume_doc)
-    logger.info(f"Resume uploaded successfully: {file.filename} for user {current_user['id']}")
+    
+    log_msg = f"Resume uploaded: {file.filename} | Method: {extraction_result.method} | OCR: {extraction_result.ocr_used} | Status: {extraction_result.status} | Chars: {len(extraction_result.text)}"
+    logger.info(log_msg)
     
     return ResumeResponse(**{k: v for k, v in resume_doc.items() if k != "_id"})
 
