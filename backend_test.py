@@ -948,8 +948,8 @@ startxref
 
     def run_all_tests(self):
         """Run all tests in sequence"""
-        print("🚀 Starting HireFlow AI Backend API Tests")
-        print("=" * 50)
+        print("🚀 Starting HireFlow AI Backend API Tests (Including OCR)")
+        print("=" * 60)
         
         # Health check first
         if not self.test_health_check():
@@ -977,33 +977,43 @@ startxref
         self.test_filter_applications_by_status()
         self.test_analytics_endpoint()
         
-        # Resume functionality tests
+        # Resume functionality tests (including OCR)
+        print("\n📄 Testing Resume & OCR Functionality...")
         self.test_create_resume_text()
         self.test_upload_resume_docx()
+        self.test_upload_resume_image_ocr()  # New OCR test
+        self.test_file_type_validation_comprehensive()  # Enhanced validation test
         self.test_upload_invalid_file_type()
         self.test_get_resumes()
         self.test_get_single_resume()
+        self.test_resume_metadata_fields()  # New metadata test
         self.test_analyze_resume()
+        self.test_extraction_integration_with_analysis()  # New integration test
         
-        # Job Match Analysis tests
+        # Job Match Analysis tests (including OCR integration)
+        print("\n🎯 Testing Job Match Analysis...")
         self.test_job_match_analyze()
+        self.test_extraction_integration_with_job_match()  # New integration test
         self.test_get_match_history()
         self.test_get_single_match()
         
         # Interview Preparation tests
+        print("\n💼 Testing Interview Preparation...")
         self.test_generate_interview_prep()
         self.test_get_interview_preps()
         self.test_get_single_interview_prep()
         self.test_regenerate_interview_prep()
         
         # Cleanup tests
+        print("\n🧹 Cleaning up test data...")
         self.test_delete_job_application()
         self.test_delete_match_analysis()
         self.test_delete_interview_prep()
         self.test_delete_resume()
+        self.cleanup_ocr_test_data()  # New OCR cleanup
         
         # Print summary
-        print("\n" + "=" * 50)
+        print("\n" + "=" * 60)
         print(f"📊 Test Results: {self.tests_passed}/{self.tests_run} passed")
         
         if self.tests_passed == self.tests_run:
