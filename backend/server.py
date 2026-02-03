@@ -712,50 +712,117 @@ async def check_and_send_reminders():
     try:
         now = datetime.now(timezone.utc)
         
-        # Check for events needing 24hr reminder (between 23-25 hours from now)
+        logger.info(f"=== Reminder Check Started ===")
+        logger.info(f"Server Time (UTC): {now.isoformat()}")
+        
+        # Calculate time windows for reminders
+        # 24hr reminder: 23-25 hours before interview
         time_24hr_start = now + timedelta(hours=23)
         time_24hr_end = now + timedelta(hours=25)
         
-        # Check for events needing 1hr reminder (between 50-70 minutes from now)
+        # 1hr reminder: 50-70 minutes before interview
         time_1hr_start = now + timedelta(minutes=50)
         time_1hr_end = now + timedelta(minutes=70)
         
-        # Find events needing 24hr reminder
-        # CRITICAL: Only fetch events where reminders_enabled is explicitly True
-        events_24hr = await db.calendar_events.find({
-            "reminders_enabled": {"$eq": True},  # Explicit True check
-            "reminder_24hr_sent": {"$ne": True},
-            "event_type": {"$in": ["interview", "phone_screen", "video_call"]},
-            "start_date": {
-                "$gte": time_24hr_start.isoformat(),
-                "$lte": time_24hr_end.isoformat()
-            }
+        logger.info(f"24hr Window: {time_24hr_start.isoformat()} to {time_24hr_end.isoformat()}")
+        logger.info(f"1hr Window: {time_1hr_start.isoformat()} to {time_1hr_end.isoformat()}")
+        
+        # Fetch ALL interview events with reminders enabled to debug
+        all_events = await db.calendar_events.find({
+            "reminders_enabled": {"$eq": True},
+            "event_type": {"$in": ["interview", "phone_screen", "video_call"]}
         }, {"_id": 0}).to_list(100)
         
-        # Find events needing 1hr reminder
-        events_1hr = await db.calendar_events.find({
-            "reminders_enabled": {"$eq": True},  # Explicit True check
-            "reminder_1hr_sent": {"$ne": True},
-            "event_type": {"$in": ["interview", "phone_screen", "video_call"]},
-            "start_date": {
-                "$gte": time_1hr_start.isoformat(),
-                "$lte": time_1hr_end.isoformat()
-            }
-        }, {"_id": 0}).to_list(100)
+        logger.info(f"Total interview events with reminders enabled: {len(all_events)}")
         
-        # Process 24hr reminders
+        # Process events manually with proper datetime parsing
+        events_24hr = []
+        events_1hr = []
+        
+        for event in all_events:
+            event_start_str = event.get("start_date", "")
+            if not event_start_str:
+                continue
+                
+            try:
+                # Parse the event start date - handle various formats
+                event_start = parse_event_datetime(event_start_str)
+                
+                # Calculate time until event
+                time_until_event = event_start - now
+                hours_until = time_until_event.total_seconds() / 3600
+                
+                logger.debug(f"Event '{event.get('title')}': starts at {event_start.isoformat()}, {hours_until:.2f} hours from now")
+                
+                # Check 24hr reminder (23-25 hours before)
+                if 23 <= hours_until <= 25:
+                    if not event.get("reminder_24hr_sent", False):
+                        events_24hr.append(event)
+                        logger.info(f"  -> Eligible for 24hr reminder: {event.get('title')}")
+                
+                # Check 1hr reminder (50-70 minutes before = 0.833-1.167 hours)
+                if 0.833 <= hours_until <= 1.167:
+                    if not event.get("reminder_1hr_sent", False):
+                        events_1hr.append(event)
+                        logger.info(f"  -> Eligible for 1hr reminder: {event.get('title')}")
+                        
+            except Exception as parse_error:
+                logger.warning(f"Failed to parse date for event {event.get('id')}: {parse_error}")
+                continue
+        
+        logger.info(f"Events eligible for 24hr reminder: {len(events_24hr)}")
+        logger.info(f"Events eligible for 1hr reminder: {len(events_1hr)}")
+        
+        # Process reminders
         for event in events_24hr:
+            logger.info(f"Sending 24hr reminder for: {event.get('title')}")
             await process_reminder(event, "24hr")
         
-        # Process 1hr reminders
         for event in events_1hr:
+            logger.info(f"Sending 1hr reminder for: {event.get('title')}")
             await process_reminder(event, "1hr")
         
         if events_24hr or events_1hr:
-            logger.info(f"Reminder check complete: {len(events_24hr)} 24hr, {len(events_1hr)} 1hr reminders processed")
+            logger.info(f"=== Reminder Check Complete: {len(events_24hr)} 24hr, {len(events_1hr)} 1hr reminders sent ===")
+        else:
+            logger.info(f"=== Reminder Check Complete: No reminders to send ===")
             
     except Exception as e:
-        logger.error(f"Reminder check failed: {e}")
+        logger.error(f"Reminder check failed: {e}", exc_info=True)
+
+def parse_event_datetime(date_str: str) -> datetime:
+    """Parse event datetime string to timezone-aware datetime"""
+    if not date_str:
+        raise ValueError("Empty date string")
+    
+    # Handle ISO format with Z suffix
+    if date_str.endswith('Z'):
+        date_str = date_str[:-1] + '+00:00'
+    
+    # Try parsing with timezone info
+    try:
+        dt = datetime.fromisoformat(date_str)
+        # If no timezone, assume UTC
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except ValueError:
+        pass
+    
+    # Try common formats without timezone
+    for fmt in [
+        "%Y-%m-%dT%H:%M:%S",
+        "%Y-%m-%dT%H:%M",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M"
+    ]:
+        try:
+            dt = datetime.strptime(date_str, fmt)
+            return dt.replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    
+    raise ValueError(f"Unable to parse date: {date_str}")
 
 async def process_reminder(event: dict, reminder_type: str):
     """Process a single reminder"""
