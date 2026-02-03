@@ -160,6 +160,12 @@ Create a full-stack web application called "HireFlow AI" with user authenticatio
   - Setting reminder flags to True when disabling prevents scheduler from picking up events
   - Using explicit `$eq: True` in MongoDB queries ensures only enabled events are fetched
   - Re-fetching event in process_reminder before sending prevents race conditions
+- **Bug Fix (Feb 2025)**: Fixed automated scheduler not triggering reminders
+  - Added `parse_event_datetime()` for proper timezone-aware datetime parsing
+  - Changed from ISO string comparison to proper datetime arithmetic (hours_until_event)
+  - Added comprehensive debug logging (server time, time windows, eligible events)
+  - Added `/api/scheduler/status` and `/api/scheduler/run-check` endpoints for monitoring
+  - First scheduler check now runs 30 seconds after startup, then every 5 minutes
 
 ### Calendar Page Enhancements
 - Added interview type dropdown (HR, Technical, Managerial, Final, Panel, Other)
