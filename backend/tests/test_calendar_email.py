@@ -284,9 +284,12 @@ class TestCalendarCRUD:
         delete_response = auth_session.delete(f"{BASE_URL}/api/calendar/{event_id}")
         assert delete_response.status_code == 200, f"Delete failed: {delete_response.text}"
         
-        # Verify deletion
-        get_response = auth_session.get(f"{BASE_URL}/api/calendar/{event_id}")
-        assert get_response.status_code == 404, "Event should not exist after deletion"
+        # Verify deletion by checking the list
+        list_response = auth_session.get(f"{BASE_URL}/api/calendar")
+        assert list_response.status_code == 200
+        events = list_response.json()
+        event_ids = [e["id"] for e in events]
+        assert event_id not in event_ids, "Event should not exist after deletion"
         
         print(f"✅ Event deleted successfully")
 
@@ -330,8 +333,8 @@ class TestEmailNotificationSystem:
         assert create_response.status_code == 200, f"Create event failed: {create_response.text}"
         event_id = create_response.json()["id"]
         
-        # Test the send test reminder endpoint
-        reminder_response = auth_session.post(f"{BASE_URL}/api/calendar/{event_id}/send-test-reminder")
+        # Test the send test reminder endpoint (correct path is /test-reminder)
+        reminder_response = auth_session.post(f"{BASE_URL}/api/calendar/{event_id}/test-reminder")
         
         # The endpoint should return 200 even if email sending fails (graceful handling)
         assert reminder_response.status_code == 200, f"Send test reminder failed: {reminder_response.text}"
