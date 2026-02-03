@@ -151,17 +151,26 @@ export default function CalendarPage() {
 
     setSubmitting(true);
     try {
-      // Convert "none" back to empty string for API
+      // Convert "none" back to empty string for API and ensure reminders_enabled is explicitly sent
       const submitData = {
         ...formData,
-        job_application_id: formData.job_application_id === "none" ? "" : formData.job_application_id
+        job_application_id: formData.job_application_id === "none" ? "" : formData.job_application_id,
+        reminders_enabled: Boolean(formData.reminders_enabled) // Ensure boolean value
       };
       const response = await axios.put(`${API}/calendar/${selectedEvent.id}`, submitData);
       setEvents(events.map(e => e.id === selectedEvent.id ? response.data : e));
       setEditOpen(false);
       setSelectedEvent(null);
       resetForm();
-      toast.success("Event updated");
+      
+      // Show appropriate message based on reminder status change
+      if (selectedEvent.reminders_enabled && !formData.reminders_enabled) {
+        toast.success("Event updated - reminders disabled");
+      } else if (!selectedEvent.reminders_enabled && formData.reminders_enabled) {
+        toast.success("Event updated - reminders enabled");
+      } else {
+        toast.success("Event updated");
+      }
     } catch (error) {
       toast.error("Failed to update event");
     } finally {
