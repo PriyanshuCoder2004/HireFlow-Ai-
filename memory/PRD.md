@@ -156,6 +156,10 @@ Create a full-stack web application called "HireFlow AI" with user authenticatio
 - Added `/api/calendar/{id}/test-reminder` endpoint for manual testing
 - Added `/api/notifications/logs` endpoint for viewing notification history
 - Calendar events now store: `reminders_enabled`, `reminder_24hr_sent`, `reminder_1hr_sent`
+- **Bug Fix (Feb 2025)**: Fixed reminder toggle bug - emails no longer sent when reminders disabled
+  - Setting reminder flags to True when disabling prevents scheduler from picking up events
+  - Using explicit `$eq: True` in MongoDB queries ensures only enabled events are fetched
+  - Re-fetching event in process_reminder before sending prevents race conditions
 
 ### Calendar Page Enhancements
 - Added interview type dropdown (HR, Technical, Managerial, Final, Panel, Other)
