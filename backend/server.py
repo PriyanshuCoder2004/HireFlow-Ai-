@@ -281,10 +281,39 @@ async def get_llm_response(system_message: str, user_message: str) -> str:
         logger.error(f"LLM error: {e}")
         raise HTTPException(status_code=500, detail="AI service temporarily unavailable")
 
-# ===================== FILE TEXT EXTRACTION =====================
+# ===================== FILE TEXT EXTRACTION WITH OCR =====================
 
-def extract_text_from_pdf(file_content: bytes) -> str:
-    """Extract text content from PDF file"""
+# Minimum character threshold for valid text extraction
+MIN_TEXT_LENGTH = 100
+MIN_WORD_COUNT = 20
+
+class ExtractionResult:
+    """Result of text extraction with metadata"""
+    def __init__(self, text: str, method: str, status: str, ocr_used: bool = False):
+        self.text = text
+        self.method = method  # "parser" or "ocr"
+        self.status = status  # "success", "partial", "failed"
+        self.ocr_used = ocr_used
+
+def is_text_readable(text: str) -> bool:
+    """Check if extracted text is readable and meaningful"""
+    if not text or len(text.strip()) < MIN_TEXT_LENGTH:
+        return False
+    
+    # Count words (at least MIN_WORD_COUNT readable words)
+    words = re.findall(r'\b[a-zA-Z]{2,}\b', text)
+    if len(words) < MIN_WORD_COUNT:
+        return False
+    
+    # Check for high ratio of special characters (might indicate garbled text)
+    alpha_ratio = len(re.findall(r'[a-zA-Z]', text)) / len(text) if text else 0
+    if alpha_ratio < 0.3:  # Less than 30% alphabetic characters
+        return False
+    
+    return True
+
+def extract_text_from_pdf_parser(file_content: bytes) -> str:
+    """Extract text content from PDF using PyPDF2 parser"""
     try:
         pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_content))
         text_content = []
@@ -294,10 +323,93 @@ def extract_text_from_pdf(file_content: bytes) -> str:
                 text_content.append(page_text)
         return "\n".join(text_content).strip()
     except Exception as e:
-        logger.error(f"PDF extraction error: {e}")
-        raise HTTPException(status_code=400, detail="Failed to extract text from PDF file")
+        logger.error(f"PDF parser extraction error: {e}")
+        return ""
 
-def extract_text_from_docx(file_content: bytes) -> str:
+def extract_text_from_pdf_ocr(file_content: bytes) -> str:
+    """Extract text from PDF using OCR (for scanned/image-based PDFs)"""
+    try:
+        # Convert PDF pages to images
+        images = convert_from_bytes(file_content, dpi=300)
+        
+        text_content = []
+        for i, image in enumerate(images):
+            # Use Tesseract OCR on each page image
+            page_text = pytesseract.image_to_string(image, lang='eng')
+            if page_text and page_text.strip():
+                text_content.append(page_text.strip())
+            logger.info(f"OCR processed page {i+1}/{len(images)}")
+        
+        return "\n\n".join(text_content).strip()
+    except Exception as e:
+        logger.error(f"PDF OCR extraction error: {e}")
+        return ""
+
+def extract_text_from_image_ocr(file_content: bytes) -> str:
+    """Extract text from image file using OCR"""
+    try:
+        image = Image.open(io.BytesIO(file_content))
+        text = pytesseract.image_to_string(image, lang='eng')
+        return text.strip()
+    except Exception as e:
+        logger.error(f"Image OCR extraction error: {e}")
+        return ""
+
+def extract_text_from_pdf(file_content: bytes) -> ExtractionResult:
+    """Extract text from PDF with OCR fallback"""
+    # Step 1: Try standard PDF text extraction
+    logger.info("Attempting PDF text extraction with parser...")
+    parser_text = extract_text_from_pdf_parser(file_content)
+    
+    if is_text_readable(parser_text):
+        logger.info(f"Parser extraction successful: {len(parser_text)} chars")
+        return ExtractionResult(
+            text=parser_text,
+            method="parser",
+            status="success",
+            ocr_used=False
+        )
+    
+    # Step 2: Parser failed or text unreadable, try OCR
+    logger.info("Parser extraction insufficient, attempting OCR fallback...")
+    ocr_text = extract_text_from_pdf_ocr(file_content)
+    
+    if is_text_readable(ocr_text):
+        logger.info(f"OCR extraction successful: {len(ocr_text)} chars")
+        return ExtractionResult(
+            text=ocr_text,
+            method="ocr",
+            status="success",
+            ocr_used=True
+        )
+    
+    # Step 3: Both methods produced some text but below threshold
+    # Return the better result with partial status
+    if len(ocr_text) > len(parser_text):
+        if ocr_text:
+            return ExtractionResult(
+                text=ocr_text,
+                method="ocr",
+                status="partial",
+                ocr_used=True
+            )
+    elif parser_text:
+        return ExtractionResult(
+            text=parser_text,
+            method="parser",
+            status="partial",
+            ocr_used=False
+        )
+    
+    # Step 4: Complete failure
+    return ExtractionResult(
+        text="",
+        method="failed",
+        status="failed",
+        ocr_used=True
+    )
+
+def extract_text_from_docx(file_content: bytes) -> ExtractionResult:
     """Extract text content from DOCX file"""
     try:
         doc = Document(io.BytesIO(file_content))
@@ -311,10 +423,38 @@ def extract_text_from_docx(file_content: bytes) -> str:
                 row_text = [cell.text.strip() for cell in row.cells if cell.text.strip()]
                 if row_text:
                     text_content.append(" | ".join(row_text))
-        return "\n".join(text_content).strip()
+        
+        text = "\n".join(text_content).strip()
+        
+        if is_text_readable(text):
+            return ExtractionResult(
+                text=text,
+                method="parser",
+                status="success",
+                ocr_used=False
+            )
+        elif text:
+            return ExtractionResult(
+                text=text,
+                method="parser",
+                status="partial",
+                ocr_used=False
+            )
+        else:
+            return ExtractionResult(
+                text="",
+                method="failed",
+                status="failed",
+                ocr_used=False
+            )
     except Exception as e:
         logger.error(f"DOCX extraction error: {e}")
-        raise HTTPException(status_code=400, detail="Failed to extract text from DOCX file")
+        return ExtractionResult(
+            text="",
+            method="failed",
+            status="failed",
+            ocr_used=False
+        )
 
 # ===================== AUTH ROUTES =====================
 
