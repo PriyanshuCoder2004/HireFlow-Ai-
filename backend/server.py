@@ -1393,15 +1393,25 @@ async def create_event(event_data: CalendarEventCreate, current_user: dict = Dep
         "title": event_data.title,
         "description": event_data.description,
         "event_type": event_data.event_type,
+        "interview_type": event_data.interview_type,
         "start_date": event_data.start_date,
         "end_date": event_data.end_date,
         "job_application_id": event_data.job_application_id,
         "location": event_data.location,
+        "meeting_link": event_data.meeting_link,
         "notes": event_data.notes,
+        "reminders_enabled": event_data.reminders_enabled,
+        "reminder_24hr_sent": False,
+        "reminder_1hr_sent": False,
         "created_at": now
     }
     
     await db.calendar_events.insert_one(event_doc)
+    
+    # Log if reminders are enabled for interview-type events
+    if event_data.reminders_enabled and event_data.event_type in ["interview", "phone_screen", "video_call"]:
+        logger.info(f"Interview event created with reminders enabled: {event_id} at {event_data.start_date}")
+    
     return CalendarEventResponse(**{k: v for k, v in event_doc.items() if k != "_id"})
 
 @api_router.get("/calendar", response_model=List[CalendarEventResponse])
