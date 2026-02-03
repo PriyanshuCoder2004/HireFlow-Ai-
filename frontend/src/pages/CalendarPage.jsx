@@ -40,7 +40,6 @@ import {
   Plus, 
   Calendar as CalendarIcon,
   Trash2, 
-  Edit2,
   Loader2,
   Clock,
   MapPin,
@@ -54,7 +53,7 @@ import {
   Mail,
   CheckCircle2
 } from "lucide-react";
-import { format, parseISO, startOfMonth, endOfMonth, isSameDay } from "date-fns";
+import { format, parseISO, isSameDay } from "date-fns";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -76,6 +75,7 @@ const interviewTypes = [
 ];
 
 const getEventTypeInfo = (type) => eventTypes.find(t => t.value === type) || eventTypes[4];
+const isInterviewType = (type) => ["interview", "phone_screen", "video_call"].includes(type);
 
 export default function CalendarPage() {
   const [events, setEvents] = useState([]);
@@ -129,7 +129,12 @@ export default function CalendarPage() {
 
     setSubmitting(true);
     try {
-      const response = await axios.post(`${API}/calendar`, formData);
+      // Convert "none" back to empty string for API
+      const submitData = {
+        ...formData,
+        job_application_id: formData.job_application_id === "none" ? "" : formData.job_application_id
+      };
+      const response = await axios.post(`${API}/calendar`, submitData);
       setEvents([...events, response.data]);
       setCreateOpen(false);
       resetForm();
@@ -146,7 +151,12 @@ export default function CalendarPage() {
 
     setSubmitting(true);
     try {
-      const response = await axios.put(`${API}/calendar/${selectedEvent.id}`, formData);
+      // Convert "none" back to empty string for API
+      const submitData = {
+        ...formData,
+        job_application_id: formData.job_application_id === "none" ? "" : formData.job_application_id
+      };
+      const response = await axios.put(`${API}/calendar/${selectedEvent.id}`, submitData);
       setEvents(events.map(e => e.id === selectedEvent.id ? response.data : e));
       setEditOpen(false);
       setSelectedEvent(null);
@@ -218,7 +228,7 @@ export default function CalendarPage() {
       end_date: event.end_date || "",
       location: event.location || "",
       meeting_link: event.meeting_link || "",
-      job_application_id: event.job_application_id || "",
+      job_application_id: event.job_application_id || "none",
       notes: event.notes || "",
       reminders_enabled: event.reminders_enabled !== false
     });
@@ -239,8 +249,18 @@ export default function CalendarPage() {
 
   const eventDates = events.map(e => parseISO(e.start_date));
 
-  // Check if event type is interview-related (for showing reminder options)
-  const isInterviewType = (type) => ["interview", "phone_screen", "video_call"].includes(type);
+  const handleFormChange = (field, value) => {
+    if (field === "job_application_id" && value !== "none") {
+      const app = applications.find(a => a.id === value);
+      setFormData({ 
+        ...formData, 
+        job_application_id: value,
+        title: app ? `${formData.event_type === "interview" ? "Interview" : formData.event_type} - ${app.position} at ${app.company}` : formData.title
+      });
+    } else {
+      setFormData({ ...formData, [field]: value });
+    }
+  };
 
   if (loading) {
     return (
@@ -256,178 +276,6 @@ export default function CalendarPage() {
       </div>
     );
   }
-
-  const EventFormFields = ({ isEdit = false }) => (
-    <div className="space-y-4 py-4">
-      <div className="space-y-2">
-        <Label htmlFor={isEdit ? "edit-title" : "title"}>Title *</Label>
-        <Input
-          id={isEdit ? "edit-title" : "title"}
-          placeholder="e.g., Interview at Google"
-          value={formData.title}
-          onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-          data-testid={isEdit ? "edit-event-title-input" : "event-title-input"}
-        />
-      </div>
-      
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Event Type</Label>
-          <Select 
-            value={formData.event_type} 
-            onValueChange={(v) => setFormData({ ...formData, event_type: v })}
-          >
-            <SelectTrigger data-testid={isEdit ? "edit-event-type-select" : "event-type-select"}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {eventTypes.map(t => (
-                <SelectItem key={t.value} value={t.value}>
-                  <div className="flex items-center gap-2">
-                    <t.icon className="h-4 w-4" />
-                    {t.label}
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        
-        {isInterviewType(formData.event_type) && (
-          <div className="space-y-2">
-            <Label>Interview Type</Label>
-            <Select 
-              value={formData.interview_type} 
-              onValueChange={(v) => setFormData({ ...formData, interview_type: v })}
-            >
-              <SelectTrigger data-testid="interview-type-select">
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                {interviewTypes.map(t => (
-                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-      </div>
-
-      {/* Job Application Link */}
-      <div className="space-y-2">
-        <Label>Link to Job Application</Label>
-        <Select 
-          value={formData.job_application_id} 
-          onValueChange={(v) => {
-            const app = applications.find(a => a.id === v);
-            setFormData({ 
-              ...formData, 
-              job_application_id: v,
-              title: app ? `${formData.event_type === "interview" ? "Interview" : formData.event_type} - ${app.position} at ${app.company}` : formData.title
-            });
-          }}
-        >
-          <SelectTrigger data-testid="job-application-select">
-            <SelectValue placeholder="Link to a job application (optional)" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">None</SelectItem>
-            {applications.map(app => (
-              <SelectItem key={app.id} value={app.id}>
-                <div className="flex items-center gap-2">
-                  <Briefcase className="h-4 w-4" />
-                  {app.position} @ {app.company}
-                </div>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Start Date/Time *</Label>
-          <Input
-            type="datetime-local"
-            value={formData.start_date}
-            onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-            data-testid={isEdit ? "edit-event-start-input" : "event-start-input"}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>End Date/Time</Label>
-          <Input
-            type="datetime-local"
-            value={formData.end_date}
-            onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-            data-testid={isEdit ? "edit-event-end-input" : "event-end-input"}
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>
-            <MapPin className="h-4 w-4 inline mr-1" />
-            Location
-          </Label>
-          <Input
-            placeholder="Office address or building"
-            value={formData.location}
-            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-            data-testid={isEdit ? "edit-event-location-input" : "event-location-input"}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>
-            <Link2 className="h-4 w-4 inline mr-1" />
-            Meeting Link
-          </Label>
-          <Input
-            placeholder="Zoom/Meet/Teams URL"
-            value={formData.meeting_link}
-            onChange={(e) => setFormData({ ...formData, meeting_link: e.target.value })}
-            data-testid="event-meeting-link-input"
-          />
-        </div>
-      </div>
-      
-      <div className="space-y-2">
-        <Label>Description</Label>
-        <Textarea
-          placeholder="Any details..."
-          rows={3}
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          data-testid={isEdit ? "edit-event-description-input" : "event-description-input"}
-        />
-      </div>
-
-      {/* Reminders Toggle - Only for interview types */}
-      {isInterviewType(formData.event_type) && (
-        <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border border-border/50">
-          <div className="flex items-center gap-3">
-            {formData.reminders_enabled ? (
-              <Bell className="h-5 w-5 text-primary" />
-            ) : (
-              <BellOff className="h-5 w-5 text-muted-foreground" />
-            )}
-            <div>
-              <p className="font-medium text-sm">Email Reminders</p>
-              <p className="text-xs text-muted-foreground">
-                Receive reminders 24 hours and 1 hour before
-              </p>
-            </div>
-          </div>
-          <Switch
-            checked={formData.reminders_enabled}
-            onCheckedChange={(checked) => setFormData({ ...formData, reminders_enabled: checked })}
-            data-testid="reminders-toggle"
-          />
-        </div>
-      )}
-    </div>
-  );
 
   return (
     <div className="space-y-6" data-testid="calendar-page">
@@ -452,7 +300,174 @@ export default function CalendarPage() {
                 Schedule an interview or reminder
               </DialogDescription>
             </DialogHeader>
-            <EventFormFields isEdit={false} />
+            
+            {/* Create Form Fields */}
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="title">Title *</Label>
+                <Input
+                  id="title"
+                  placeholder="e.g., Interview at Google"
+                  value={formData.title}
+                  onChange={(e) => handleFormChange("title", e.target.value)}
+                  data-testid="event-title-input"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Event Type</Label>
+                  <Select 
+                    value={formData.event_type} 
+                    onValueChange={(v) => handleFormChange("event_type", v)}
+                  >
+                    <SelectTrigger data-testid="event-type-select">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {eventTypes.map(t => {
+                        const IconComponent = t.icon;
+                        return (
+                          <SelectItem key={t.value} value={t.value}>
+                            <div className="flex items-center gap-2">
+                              <IconComponent className="h-4 w-4" />
+                              {t.label}
+                            </div>
+                          </SelectItem>
+                        );
+                      })}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                {isInterviewType(formData.event_type) && (
+                  <div className="space-y-2">
+                    <Label>Interview Type</Label>
+                    <Select 
+                      value={formData.interview_type} 
+                      onValueChange={(v) => handleFormChange("interview_type", v)}
+                    >
+                      <SelectTrigger data-testid="interview-type-select">
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {interviewTypes.map(t => (
+                          <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+              {/* Job Application Link */}
+              <div className="space-y-2">
+                <Label>Link to Job Application</Label>
+                <Select 
+                  value={formData.job_application_id || "none"} 
+                  onValueChange={(v) => handleFormChange("job_application_id", v)}
+                >
+                  <SelectTrigger data-testid="job-application-select">
+                    <SelectValue placeholder="Link to a job application (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    {applications.map(app => (
+                      <SelectItem key={app.id} value={app.id}>
+                        <div className="flex items-center gap-2">
+                          <Briefcase className="h-4 w-4" />
+                          {app.position} @ {app.company}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Start Date/Time *</Label>
+                  <Input
+                    type="datetime-local"
+                    value={formData.start_date}
+                    onChange={(e) => handleFormChange("start_date", e.target.value)}
+                    data-testid="event-start-input"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>End Date/Time</Label>
+                  <Input
+                    type="datetime-local"
+                    value={formData.end_date}
+                    onChange={(e) => handleFormChange("end_date", e.target.value)}
+                    data-testid="event-end-input"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>
+                    <MapPin className="h-4 w-4 inline mr-1" />
+                    Location
+                  </Label>
+                  <Input
+                    placeholder="Office address or building"
+                    value={formData.location}
+                    onChange={(e) => handleFormChange("location", e.target.value)}
+                    data-testid="event-location-input"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>
+                    <Link2 className="h-4 w-4 inline mr-1" />
+                    Meeting Link
+                  </Label>
+                  <Input
+                    placeholder="Zoom/Meet/Teams URL"
+                    value={formData.meeting_link}
+                    onChange={(e) => handleFormChange("meeting_link", e.target.value)}
+                    data-testid="event-meeting-link-input"
+                  />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Description</Label>
+                <Textarea
+                  placeholder="Any details..."
+                  rows={3}
+                  value={formData.description}
+                  onChange={(e) => handleFormChange("description", e.target.value)}
+                  data-testid="event-description-input"
+                />
+              </div>
+
+              {/* Reminders Toggle - Only for interview types */}
+              {isInterviewType(formData.event_type) && (
+                <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border border-border/50">
+                  <div className="flex items-center gap-3">
+                    {formData.reminders_enabled ? (
+                      <Bell className="h-5 w-5 text-primary" />
+                    ) : (
+                      <BellOff className="h-5 w-5 text-muted-foreground" />
+                    )}
+                    <div>
+                      <p className="font-medium text-sm">Email Reminders</p>
+                      <p className="text-xs text-muted-foreground">
+                        Receive reminders 24 hours and 1 hour before
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={formData.reminders_enabled}
+                    onCheckedChange={(checked) => handleFormChange("reminders_enabled", checked)}
+                    data-testid="reminders-toggle"
+                  />
+                </div>
+              )}
+            </div>
+            
             <DialogFooter>
               <Button variant="outline" onClick={() => { setCreateOpen(false); resetForm(); }}>
                 Cancel
@@ -620,7 +635,173 @@ export default function CalendarPage() {
           <DialogHeader>
             <DialogTitle>Edit Event</DialogTitle>
           </DialogHeader>
-          <EventFormFields isEdit={true} />
+          
+          {/* Edit Form Fields */}
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-title">Title *</Label>
+              <Input
+                id="edit-title"
+                placeholder="e.g., Interview at Google"
+                value={formData.title}
+                onChange={(e) => handleFormChange("title", e.target.value)}
+                data-testid="edit-event-title-input"
+              />
+            </div>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Event Type</Label>
+                <Select 
+                  value={formData.event_type} 
+                  onValueChange={(v) => handleFormChange("event_type", v)}
+                >
+                  <SelectTrigger data-testid="edit-event-type-select">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {eventTypes.map(t => {
+                      const IconComponent = t.icon;
+                      return (
+                        <SelectItem key={t.value} value={t.value}>
+                          <div className="flex items-center gap-2">
+                            <IconComponent className="h-4 w-4" />
+                            {t.label}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              {isInterviewType(formData.event_type) && (
+                <div className="space-y-2">
+                  <Label>Interview Type</Label>
+                  <Select 
+                    value={formData.interview_type} 
+                    onValueChange={(v) => handleFormChange("interview_type", v)}
+                  >
+                    <SelectTrigger data-testid="edit-interview-type-select">
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {interviewTypes.map(t => (
+                        <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            {/* Job Application Link */}
+            <div className="space-y-2">
+              <Label>Link to Job Application</Label>
+              <Select 
+                value={formData.job_application_id || "none"} 
+                onValueChange={(v) => handleFormChange("job_application_id", v)}
+              >
+                <SelectTrigger data-testid="edit-job-application-select">
+                  <SelectValue placeholder="Link to a job application (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {applications.map(app => (
+                    <SelectItem key={app.id} value={app.id}>
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="h-4 w-4" />
+                        {app.position} @ {app.company}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Start Date/Time *</Label>
+                <Input
+                  type="datetime-local"
+                  value={formData.start_date}
+                  onChange={(e) => handleFormChange("start_date", e.target.value)}
+                  data-testid="edit-event-start-input"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>End Date/Time</Label>
+                <Input
+                  type="datetime-local"
+                  value={formData.end_date}
+                  onChange={(e) => handleFormChange("end_date", e.target.value)}
+                  data-testid="edit-event-end-input"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>
+                  <MapPin className="h-4 w-4 inline mr-1" />
+                  Location
+                </Label>
+                <Input
+                  placeholder="Office address or building"
+                  value={formData.location}
+                  onChange={(e) => handleFormChange("location", e.target.value)}
+                  data-testid="edit-event-location-input"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>
+                  <Link2 className="h-4 w-4 inline mr-1" />
+                  Meeting Link
+                </Label>
+                <Input
+                  placeholder="Zoom/Meet/Teams URL"
+                  value={formData.meeting_link}
+                  onChange={(e) => handleFormChange("meeting_link", e.target.value)}
+                  data-testid="edit-event-meeting-link-input"
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Textarea
+                placeholder="Any details..."
+                rows={3}
+                value={formData.description}
+                onChange={(e) => handleFormChange("description", e.target.value)}
+                data-testid="edit-event-description-input"
+              />
+            </div>
+
+            {/* Reminders Toggle */}
+            {isInterviewType(formData.event_type) && (
+              <div className="flex items-center justify-between p-4 rounded-lg bg-muted/50 border border-border/50">
+                <div className="flex items-center gap-3">
+                  {formData.reminders_enabled ? (
+                    <Bell className="h-5 w-5 text-primary" />
+                  ) : (
+                    <BellOff className="h-5 w-5 text-muted-foreground" />
+                  )}
+                  <div>
+                    <p className="font-medium text-sm">Email Reminders</p>
+                    <p className="text-xs text-muted-foreground">
+                      Receive reminders 24 hours and 1 hour before
+                    </p>
+                  </div>
+                </div>
+                <Switch
+                  checked={formData.reminders_enabled}
+                  onCheckedChange={(checked) => handleFormChange("reminders_enabled", checked)}
+                  data-testid="edit-reminders-toggle"
+                />
+              </div>
+            )}
+          </div>
           
           {/* Reminder Status */}
           {selectedEvent && isInterviewType(selectedEvent.event_type) && (
