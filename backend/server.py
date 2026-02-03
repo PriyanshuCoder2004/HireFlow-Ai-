@@ -1606,6 +1606,56 @@ async def get_notification_logs(current_user: dict = Depends(get_current_user)):
     ).sort("created_at", -1).to_list(50)
     return logs
 
+@api_router.post("/scheduler/run-check")
+async def run_scheduler_check(current_user: dict = Depends(get_current_user)):
+    """Manually trigger the reminder scheduler check (for debugging)"""
+    logger.info(f"Manual scheduler check triggered by user {current_user['id']}")
+    await check_and_send_reminders()
+    return {"message": "Scheduler check completed", "check_time": datetime.now(timezone.utc).isoformat()}
+
+@api_router.get("/scheduler/status")
+async def get_scheduler_status(current_user: dict = Depends(get_current_user)):
+    """Get scheduler status and upcoming events info"""
+    now = datetime.now(timezone.utc)
+    
+    # Get all upcoming events with reminders enabled
+    all_events = await db.calendar_events.find({
+        "user_id": current_user["id"],
+        "reminders_enabled": {"$eq": True},
+        "event_type": {"$in": ["interview", "phone_screen", "video_call"]}
+    }, {"_id": 0}).to_list(50)
+    
+    events_info = []
+    for event in all_events:
+        try:
+            event_start = parse_event_datetime(event.get("start_date", ""))
+            time_until = event_start - now
+            hours_until = time_until.total_seconds() / 3600
+            
+            events_info.append({
+                "id": event.get("id"),
+                "title": event.get("title"),
+                "start_date": event.get("start_date"),
+                "hours_until_event": round(hours_until, 2),
+                "reminder_24hr_sent": event.get("reminder_24hr_sent", False),
+                "reminder_1hr_sent": event.get("reminder_1hr_sent", False),
+                "eligible_24hr": 23 <= hours_until <= 25 and not event.get("reminder_24hr_sent", False),
+                "eligible_1hr": 0.833 <= hours_until <= 1.167 and not event.get("reminder_1hr_sent", False)
+            })
+        except Exception as e:
+            events_info.append({
+                "id": event.get("id"),
+                "title": event.get("title"),
+                "error": str(e)
+            })
+    
+    return {
+        "server_time_utc": now.isoformat(),
+        "scheduler_running": scheduler.running if scheduler else False,
+        "scheduler_interval": "5 minutes",
+        "upcoming_events": events_info
+    }
+
 # ===================== INTERVIEW PREPARATION ROUTES =====================
 
 @api_router.post("/interview-prep/generate", response_model=InterviewPrepResponse)
