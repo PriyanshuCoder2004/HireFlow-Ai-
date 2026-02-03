@@ -14,7 +14,7 @@ from typing import Dict, Any, Optional
 from PIL import Image, ImageDraw, ImageFont
 
 class HireFlowAPITester:
-    def __init__(self, base_url: str = "https://talent-ai-13.preview.emergentagent.com"):
+    def __init__(self, base_url: str = "https://jobtracker-87.preview.emergentagent.com"):
         self.base_url = base_url
         self.api_url = f"{base_url}/api"
         self.token = None
