@@ -1783,6 +1783,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+async def startup_event():
+    """Start background scheduler for email reminders"""
+    if RESEND_API_KEY:
+        # Schedule reminder check every 5 minutes
+        scheduler.add_job(
+            check_and_send_reminders,
+            'interval',
+            minutes=5,
+            id='reminder_check',
+            replace_existing=True
+        )
+        scheduler.start()
+        logger.info("Email reminder scheduler started - checking every 5 minutes")
+    else:
+        logger.warning("RESEND_API_KEY not configured - email reminders disabled")
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
+    if scheduler.running:
+        scheduler.shutdown()
     client.close()
