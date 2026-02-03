@@ -349,7 +349,10 @@ export default function InterviewPrepPage() {
                     <div 
                       key={prep.id} 
                       className="p-4 rounded-lg border border-border/50 hover:border-primary/30 transition-colors cursor-pointer"
-                      onClick={() => { setSelectedPrep(prep); setViewOpen(true); }}
+                      onClick={() => { 
+                        setSelectedPrep(prep); 
+                        setTimeout(() => setViewOpen(true), 0);
+                      }}
                       data-testid={`prep-history-${prep.id}`}
                     >
                       <div className="flex items-start justify-between gap-2">
