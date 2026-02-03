@@ -78,6 +78,9 @@ class ResumeResponse(BaseModel):
     content: str
     file_name: Optional[str] = None
     file_type: Optional[str] = None
+    extraction_method: Optional[str] = None  # "parser" or "ocr"
+    extraction_status: Optional[str] = None  # "success" or "partial" or "failed"
+    ocr_used: bool = False
     analysis: Optional[dict] = None
     score: Optional[int] = None
     created_at: str
