@@ -42,9 +42,18 @@ JWT_EXPIRATION_HOURS = 24
 # LLM Key
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
 
+# Email Configuration (Resend)
+RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
+SENDER_EMAIL = os.environ.get('SENDER_EMAIL', 'onboarding@resend.dev')
+if RESEND_API_KEY:
+    resend.api_key = RESEND_API_KEY
+
 app = FastAPI(title="HireFlow AI API")
 api_router = APIRouter(prefix="/api")
 security = HTTPBearer()
+
+# Background Scheduler for email reminders
+scheduler = AsyncIOScheduler()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
