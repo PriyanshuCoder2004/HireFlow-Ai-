@@ -29,6 +29,8 @@ Create a full-stack web application called "HireFlow AI" with user authenticatio
 ### Backend (FastAPI + MongoDB)
 - ✅ User Authentication: Register, Login, JWT tokens
 - ✅ Resume API: Create, Read, Delete, AI Analysis/Scoring, File Upload (PDF/DOCX)
+  - OCR fallback for scanned/image-based resumes (Tesseract + pdf2image)
+  - Extraction metadata: method (parser/ocr), status (success/partial/failed)
 - ✅ Job Applications API: Full CRUD with status tracking and filtering
 - ✅ Cover Letter Generator: AI-powered generation with optional resume context
 - ✅ Job Match Analysis: Enhanced resume-to-job matching with comprehensive analysis
@@ -40,6 +42,7 @@ Create a full-stack web application called "HireFlow AI" with user authenticatio
   - Actionable suggestions
   - Keyword analysis
   - Stored in database, retrievable via history
+- ✅ Interview Prep: AI-generated questions with STAR guidance, stored in DB
 - ✅ Calendar API: Event CRUD for interview scheduling
 - ✅ Analytics API: Stats aggregation
 
