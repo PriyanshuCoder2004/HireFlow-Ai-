@@ -586,14 +586,37 @@ export default function ResumesPage() {
               {selectedResume?.title}
             </DialogTitle>
             {selectedResume?.file_name && (
-              <DialogDescription className="flex items-center gap-1">
+              <DialogDescription className="flex items-center gap-2">
                 <File className="h-3 w-3" />
                 Uploaded from: {selectedResume.file_name}
+                {selectedResume.ocr_used && (
+                  <Badge variant="secondary" className="text-xs ml-2">
+                    <Scan className="h-3 w-3 mr-1" />
+                    OCR Processed
+                  </Badge>
+                )}
               </DialogDescription>
             )}
           </DialogHeader>
           <ScrollArea className="max-h-[70vh]">
             <div className="space-y-6 pr-4">
+              {/* Extraction Info Banner */}
+              {selectedResume?.ocr_used && (
+                <div className="p-3 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                  <div className="flex items-start gap-2">
+                    <Scan className="h-4 w-4 text-blue-500 mt-0.5" />
+                    <div className="text-sm">
+                      <p className="font-medium text-blue-600">Advanced OCR Used</p>
+                      <p className="text-muted-foreground text-xs">
+                        {selectedResume.extraction_status === "partial" 
+                          ? "Some text may be imperfect due to image quality. For best results, use an ATS-friendly PDF or DOCX."
+                          : "We used advanced OCR to read your scanned document."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               {selectedResume?.analysis && (
                 <div className="space-y-4">
                   <div className="flex items-center gap-4 p-4 rounded-lg bg-muted/50">
