@@ -301,7 +301,7 @@ export default function ResumesPage() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label>Resume File (PDF or DOCX)</Label>
+                  <Label>Resume File (PDF, DOCX, or Image)</Label>
                   <div 
                     className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
                       selectedFile ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'
@@ -325,7 +325,7 @@ export default function ResumesPage() {
                     <input
                       ref={fileInputRef}
                       type="file"
-                      accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      accept=".pdf,.docx,.png,.jpg,.jpeg,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg"
                       onChange={handleFileSelect}
                       className="hidden"
                       id="resume-file-input"
