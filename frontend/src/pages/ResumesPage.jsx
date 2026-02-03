@@ -365,7 +365,11 @@ export default function ResumesPage() {
                           <div>
                             <p className="font-medium">Drop your resume here or click to browse</p>
                             <p className="text-sm text-muted-foreground mt-1">
-                              Supports PDF and DOCX (max 10MB)
+                              Supports PDF, DOCX, PNG, JPG (max 10MB)
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1 flex items-center justify-center gap-1">
+                              <Scan className="h-3 w-3" />
+                              Scanned documents supported via OCR
                             </p>
                           </div>
                         </div>
@@ -383,7 +387,7 @@ export default function ResumesPage() {
                   {uploading ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Uploading & Extracting Text...
+                      Processing (OCR if needed)...
                     </>
                   ) : (
                     <>
