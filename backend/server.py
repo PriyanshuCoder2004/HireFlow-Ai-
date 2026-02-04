@@ -1316,8 +1316,239 @@ async def delete_application(app_id: str, current_user: dict = Depends(get_curre
         raise HTTPException(status_code=404, detail="Application not found")
     return {"message": "Application deleted"}
 
-# ===================== COVER LETTER ROUTES =====================
+# ===================== COVER LETTER ROUTES (Phase 1) =====================
 
+@api_router.post("/cover-letter/generate", response_model=CoverLetterFullResponse)
+async def generate_cover_letter_v2(request: CoverLetterGenerateRequest, current_user: dict = Depends(get_current_user)):
+    """
+    Phase 1 AI Cover Letter Generator
+    - Fetches resume content and job application details
+    - Generates ATS-friendly cover letter using AI
+    - Stores with full metadata
+    """
+    # Fetch resume
+    resume = await db.resumes.find_one({"id": request.resume_id, "user_id": current_user["id"]}, {"_id": 0})
+    if not resume:
+        raise HTTPException(status_code=404, detail="Resume not found")
+    
+    # Fetch job application
+    job_app = await db.applications.find_one({"id": request.job_application_id, "user_id": current_user["id"]}, {"_id": 0})
+    if not job_app:
+        raise HTTPException(status_code=404, detail="Job application not found")
+    
+    resume_content = resume.get("content", "")
+    company_name = job_app.get("company", "")
+    position = job_app.get("position", "")
+    job_description = job_app.get("job_description", "")
+    
+    # AI prompt for ATS-friendly cover letter
+    system_msg = """You are an expert cover letter writer specializing in ATS-friendly, professional cover letters.
+
+REQUIREMENTS:
+- Write a professional, tailored cover letter
+- Use a 3-4 paragraph structure:
+  1. Opening: Express interest in the specific role and company
+  2. Skills Alignment: Match your experience to the job requirements
+  3. Key Achievements: Highlight 2-3 relevant accomplishments from the resume
+  4. Closing: Express enthusiasm and gratitude, include call to action
+- Keep between 250-400 words
+- Use professional tone throughout
+- IMPORTANT: Only reference experience, skills, and achievements that are actually in the resume - DO NOT hallucinate or invent experiences
+- Format for ATS compatibility (clean paragraphs, no special formatting)
+- Include a professional greeting and sign-off
+
+Output ONLY the cover letter text, ready to use."""
+
+    user_msg = f"""Generate a cover letter for this job application:
+
+COMPANY: {company_name}
+POSITION: {position}
+JOB DESCRIPTION:
+{job_description if job_description else "Not provided - use the position title to tailor the letter"}
+
+CANDIDATE'S RESUME:
+{resume_content}
+
+{f"ADDITIONAL NOTES FROM CANDIDATE: {request.customization_notes}" if request.customization_notes else ""}
+
+Write the cover letter now:"""
+
+    try:
+        content = await get_llm_response(system_msg, user_msg)
+    except Exception as e:
+        logger.error(f"AI generation failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to generate cover letter. Please try again.")
+    
+    # Calculate word count
+    word_count = len(content.split())
+    
+    letter_id = str(uuid.uuid4())
+    now = datetime.now(timezone.utc).isoformat()
+    
+    letter_doc = {
+        "id": letter_id,
+        "user_id": current_user["id"],
+        "resume_id": request.resume_id,
+        "job_application_id": request.job_application_id,
+        "title": f"Cover Letter - {position} at {company_name}",
+        "content": content,
+        "word_count": word_count,
+        "company_name": company_name,
+        "position": position,
+        "customization_notes": request.customization_notes,
+        "created_at": now,
+        "updated_at": now
+    }
+    
+    await db.cover_letters_v2.insert_one(letter_doc)
+    return CoverLetterFullResponse(**{k: v for k, v in letter_doc.items() if k not in ["_id", "customization_notes"]})
+
+@api_router.get("/cover-letter", response_model=List[CoverLetterFullResponse])
+async def get_all_cover_letters(current_user: dict = Depends(get_current_user)):
+    """Get all cover letters for the logged-in user"""
+    letters = await db.cover_letters_v2.find(
+        {"user_id": current_user["id"]}, 
+        {"_id": 0, "customization_notes": 0}
+    ).sort("created_at", -1).to_list(100)
+    return [CoverLetterFullResponse(**l) for l in letters]
+
+@api_router.get("/cover-letter/{letter_id}", response_model=CoverLetterFullResponse)
+async def get_cover_letter(letter_id: str, current_user: dict = Depends(get_current_user)):
+    """Get a single cover letter by ID"""
+    letter = await db.cover_letters_v2.find_one(
+        {"id": letter_id, "user_id": current_user["id"]}, 
+        {"_id": 0, "customization_notes": 0}
+    )
+    if not letter:
+        raise HTTPException(status_code=404, detail="Cover letter not found")
+    return CoverLetterFullResponse(**letter)
+
+@api_router.put("/cover-letter/{letter_id}", response_model=CoverLetterFullResponse)
+async def update_cover_letter(letter_id: str, update_data: CoverLetterUpdateRequest, current_user: dict = Depends(get_current_user)):
+    """Update a cover letter (content or title)"""
+    update_fields = {}
+    
+    if update_data.content is not None:
+        update_fields["content"] = update_data.content
+        update_fields["word_count"] = len(update_data.content.split())
+    
+    if update_data.title is not None:
+        update_fields["title"] = update_data.title
+    
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No update data provided")
+    
+    update_fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+    
+    result = await db.cover_letters_v2.update_one(
+        {"id": letter_id, "user_id": current_user["id"]},
+        {"$set": update_fields}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Cover letter not found")
+    
+    updated = await db.cover_letters_v2.find_one({"id": letter_id}, {"_id": 0, "customization_notes": 0})
+    return CoverLetterFullResponse(**updated)
+
+@api_router.delete("/cover-letter/{letter_id}")
+async def delete_cover_letter_v2(letter_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete a cover letter"""
+    result = await db.cover_letters_v2.delete_one({"id": letter_id, "user_id": current_user["id"]})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Cover letter not found")
+    return {"message": "Cover letter deleted"}
+
+@api_router.get("/cover-letter/{letter_id}/pdf")
+async def download_cover_letter_pdf(letter_id: str, current_user: dict = Depends(get_current_user)):
+    """Generate and download cover letter as PDF"""
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+    from fastapi.responses import StreamingResponse
+    
+    # Fetch cover letter
+    cover_letter = await db.cover_letters_v2.find_one(
+        {"id": letter_id, "user_id": current_user["id"]}, 
+        {"_id": 0}
+    )
+    if not cover_letter:
+        raise HTTPException(status_code=404, detail="Cover letter not found")
+    
+    # Get user info for header
+    user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0})
+    
+    # Create PDF in memory
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=inch,
+        leftMargin=inch,
+        topMargin=inch,
+        bottomMargin=inch
+    )
+    
+    # Styles
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle(
+        'Title',
+        parent=styles['Heading1'],
+        fontSize=14,
+        spaceAfter=12
+    )
+    body_style = ParagraphStyle(
+        'Body',
+        parent=styles['Normal'],
+        fontSize=11,
+        leading=14,
+        spaceAfter=12
+    )
+    
+    # Build PDF content
+    story = []
+    
+    # Header with user name
+    if user:
+        story.append(Paragraph(user.get("name", ""), title_style))
+        story.append(Paragraph(user.get("email", ""), body_style))
+        story.append(Spacer(1, 0.3 * inch))
+    
+    # Date
+    story.append(Paragraph(datetime.now().strftime("%B %d, %Y"), body_style))
+    story.append(Spacer(1, 0.2 * inch))
+    
+    # Company info
+    story.append(Paragraph(f"RE: {cover_letter['position']} Position", body_style))
+    story.append(Paragraph(cover_letter['company_name'], body_style))
+    story.append(Spacer(1, 0.3 * inch))
+    
+    # Cover letter content - split by paragraphs
+    content = cover_letter['content']
+    paragraphs = content.split('\n\n')
+    for para in paragraphs:
+        if para.strip():
+            # Clean up any single newlines within paragraphs
+            cleaned_para = para.replace('\n', ' ').strip()
+            story.append(Paragraph(cleaned_para, body_style))
+    
+    # Build PDF
+    doc.build(story)
+    buffer.seek(0)
+    
+    # Generate filename
+    safe_company = "".join(c for c in cover_letter['company_name'] if c.isalnum() or c in (' ', '-', '_')).strip()
+    safe_position = "".join(c for c in cover_letter['position'] if c.isalnum() or c in (' ', '-', '_')).strip()
+    filename = f"Cover_Letter_{safe_company}_{safe_position}.pdf"
+    
+    return StreamingResponse(
+        buffer,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+# Legacy cover letter routes (keeping for backward compatibility)
 @api_router.post("/cover-letters/generate", response_model=CoverLetterResponse)
 async def generate_cover_letter(request: CoverLetterRequest, current_user: dict = Depends(get_current_user)):
     resume_content = ""
