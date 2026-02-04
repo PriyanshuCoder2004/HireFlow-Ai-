@@ -593,7 +593,7 @@ export default function CalendarPage() {
                             )}
                           </div>
                           <p className="text-xs text-muted-foreground">
-                            {format(parseISO(event.start_date), "h:mm a")}
+                            {formatLocalTime(event.start_date, "h:mm a")}
                             {event.location && ` • ${event.location}`}
                             {event.meeting_link && " • Online"}
                           </p>
@@ -638,7 +638,7 @@ export default function CalendarPage() {
                           )}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {format(parseISO(event.start_date), "MMM d 'at' h:mm a")}
+                          {formatLocalTime(event.start_date, "MMM d 'at' h:mm a")}
                         </p>
                         {event.interview_type && (
                           <Badge variant="outline" className="mt-1 text-xs">
