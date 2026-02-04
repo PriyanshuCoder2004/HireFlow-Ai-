@@ -54,8 +54,50 @@ import {
   CheckCircle2
 } from "lucide-react";
 import { format, parseISO, isSameDay } from "date-fns";
+import { formatInTimeZone, toZonedTime, fromZonedTime } from "date-fns-tz";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Get user's timezone
+const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+/**
+ * Convert local datetime string to UTC ISO string for backend storage
+ * Input: "2026-02-04T15:20" (local time from datetime-local input)
+ * Output: "2026-02-04T23:20:00.000Z" (UTC ISO string)
+ */
+const localToUTC = (localDateStr) => {
+  if (!localDateStr) return "";
+  // Parse the local datetime string and convert to UTC
+  const localDate = new Date(localDateStr);
+  return localDate.toISOString();
+};
+
+/**
+ * Convert UTC ISO string to local datetime string for form input
+ * Input: "2026-02-04T23:20:00.000Z" (UTC from backend)
+ * Output: "2026-02-04T15:20" (local time for datetime-local input)
+ */
+const utcToLocal = (utcDateStr) => {
+  if (!utcDateStr) return "";
+  const date = new Date(utcDateStr);
+  // Format as datetime-local input expects: YYYY-MM-DDTHH:mm
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+/**
+ * Format UTC date for display in user's local timezone
+ */
+const formatLocalTime = (utcDateStr, formatStr) => {
+  if (!utcDateStr) return "";
+  const date = new Date(utcDateStr);
+  return format(date, formatStr);
+};
 
 const eventTypes = [
   { value: "interview", label: "Interview", icon: Users, color: "bg-blue-500" },
