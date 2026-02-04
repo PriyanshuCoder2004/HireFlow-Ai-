@@ -35,6 +35,12 @@ Create a full-stack web application called "HireFlow AI" with user authenticatio
   - Extraction metadata: method (parser/ocr), status (success/partial/failed)
 - ✅ Job Applications API: Full CRUD with status tracking and filtering
 - ✅ Cover Letter Generator: AI-powered generation with optional resume context
+- ✅ **Phase 1 Cover Letter Generator** (Completed Feb 2025):
+  - `POST /api/cover-letter/generate` - Generate from resume + job application
+  - Full CRUD: GET all, GET single, PUT update, DELETE
+  - `GET /api/cover-letter/{id}/pdf` - PDF export with reportlab
+  - ATS-friendly format, 250-400 words, professional tone
+  - Frontend: Two-panel layout, editor with word count, history sidebar
 - ✅ Job Match Analysis: Enhanced resume-to-job matching with comprehensive analysis
   - Match score (0-100)
   - Skill match analysis (matched/partial/missing)
