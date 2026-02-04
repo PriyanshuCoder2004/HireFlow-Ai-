@@ -11,6 +11,7 @@ import DashboardPage from "@/pages/DashboardPage";
 import ResumesPage from "@/pages/ResumesPage";
 import ApplicationsPage from "@/pages/ApplicationsPage";
 import CoverLettersPage from "@/pages/CoverLettersPage";
+import CoverLetterGeneratorPage from "@/pages/CoverLetterGeneratorPage";
 import CalendarPage from "@/pages/CalendarPage";
 import SettingsPage from "@/pages/SettingsPage";
 import JobMatchPage from "@/pages/JobMatchPage";
@@ -40,6 +41,7 @@ function App() {
               <Route path="interview-prep" element={<InterviewPrepPage />} />
               <Route path="applications" element={<ApplicationsPage />} />
               <Route path="cover-letters" element={<CoverLettersPage />} />
+              <Route path="cover-letter-generator" element={<CoverLetterGeneratorPage />} />
               <Route path="calendar" element={<CalendarPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
