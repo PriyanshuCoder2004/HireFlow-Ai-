@@ -54,11 +54,10 @@ import {
   CheckCircle2
 } from "lucide-react";
 import { format, parseISO, isSameDay } from "date-fns";
-import { formatInTimeZone, toZonedTime, fromZonedTime } from "date-fns-tz";
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-// Get user's timezone
+// Get user's timezone for display
 const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 /**
