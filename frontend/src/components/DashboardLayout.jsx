@@ -27,7 +27,8 @@ import {
   X,
   ChevronRight,
   Target,
-  GraduationCap
+  GraduationCap,
+  PenTool
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +38,7 @@ const navItems = [
   { to: "/dashboard/job-match", icon: Target, label: "Job Match" },
   { to: "/dashboard/interview-prep", icon: GraduationCap, label: "Interview Prep" },
   { to: "/dashboard/applications", icon: Briefcase, label: "Applications" },
+  { to: "/dashboard/cover-letter-generator", icon: PenTool, label: "Cover Letter AI" },
   { to: "/dashboard/cover-letters", icon: Mail, label: "Cover Letters" },
   { to: "/dashboard/calendar", icon: CalendarIcon, label: "Calendar" },
   { to: "/dashboard/settings", icon: Settings, label: "Settings" },
