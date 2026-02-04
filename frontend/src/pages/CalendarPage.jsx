@@ -274,13 +274,14 @@ export default function CalendarPage() {
 
   const openEdit = (event) => {
     setSelectedEvent(event);
+    // Convert UTC dates from backend to local for form display
     setFormData({
       title: event.title,
       description: event.description || "",
       event_type: event.event_type,
       interview_type: event.interview_type || "",
-      start_date: event.start_date,
-      end_date: event.end_date || "",
+      start_date: utcToLocal(event.start_date),
+      end_date: utcToLocal(event.end_date),
       location: event.location || "",
       meeting_link: event.meeting_link || "",
       job_application_id: event.job_application_id || "none",
