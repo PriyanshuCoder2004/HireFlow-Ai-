@@ -1734,6 +1734,91 @@ async def get_scheduler_status(current_user: dict = Depends(get_current_user)):
         "upcoming_events": events_info
     }
 
+# ===================== PUBLIC DEBUG ENDPOINT (Development Only) =====================
+
+@api_router.get("/debug/scheduler")
+async def debug_scheduler_status():
+    """
+    PUBLIC debug endpoint for scheduler status - NO AUTHENTICATION REQUIRED.
+    Only available when DEBUG_MODE=true in environment.
+    Returns: last run time, eligible events count, and execution logs.
+    """
+    if not DEBUG_MODE:
+        raise HTTPException(
+            status_code=403, 
+            detail="Debug endpoint is disabled in production. Set DEBUG_MODE=true to enable."
+        )
+    
+    now = datetime.now(timezone.utc)
+    
+    # Get total counts from database
+    total_events_with_reminders = await db.calendar_events.count_documents({
+        "reminders_enabled": {"$eq": True},
+        "event_type": {"$in": ["interview", "phone_screen", "video_call"]}
+    })
+    
+    # Get next scheduler run time
+    next_run = None
+    if scheduler.running:
+        job = scheduler.get_job('reminder_check')
+        if job and job.next_run_time:
+            next_run = job.next_run_time.isoformat()
+    
+    # Calculate time since last run
+    time_since_last_run = None
+    if scheduler_status.get("last_run_time"):
+        try:
+            last_run = datetime.fromisoformat(scheduler_status["last_run_time"])
+            time_since_last_run = f"{int((now - last_run).total_seconds())} seconds ago"
+        except:
+            pass
+    
+    return {
+        "debug_mode": True,
+        "server_time_utc": now.isoformat(),
+        "scheduler": {
+            "running": scheduler.running if scheduler else False,
+            "interval": "5 minutes",
+            "next_run_time": next_run,
+            "last_run_time": scheduler_status.get("last_run_time"),
+            "time_since_last_run": time_since_last_run,
+            "last_run_duration_ms": scheduler_status.get("last_run_duration_ms")
+        },
+        "last_execution": {
+            "total_events_checked": scheduler_status.get("total_events_checked", 0),
+            "eligible_24hr_count": scheduler_status.get("eligible_24hr_count", 0),
+            "eligible_1hr_count": scheduler_status.get("eligible_1hr_count", 0),
+            "reminders_sent_24hr": scheduler_status.get("reminders_sent_24hr", 0),
+            "reminders_sent_1hr": scheduler_status.get("reminders_sent_1hr", 0)
+        },
+        "database": {
+            "total_events_with_reminders_enabled": total_events_with_reminders
+        },
+        "errors": scheduler_status.get("last_errors", []),
+        "execution_logs": scheduler_status.get("execution_logs", [])
+    }
+
+@api_router.post("/debug/scheduler/trigger")
+async def debug_trigger_scheduler():
+    """
+    PUBLIC debug endpoint to manually trigger scheduler - NO AUTHENTICATION REQUIRED.
+    Only available when DEBUG_MODE=true in environment.
+    """
+    if not DEBUG_MODE:
+        raise HTTPException(
+            status_code=403, 
+            detail="Debug endpoint is disabled in production. Set DEBUG_MODE=true to enable."
+        )
+    
+    logger.info("Debug: Manual scheduler trigger initiated")
+    await check_and_send_reminders()
+    
+    return {
+        "message": "Scheduler check completed",
+        "triggered_at": datetime.now(timezone.utc).isoformat(),
+        "status": scheduler_status
+    }
+
 # ===================== INTERVIEW PREPARATION ROUTES =====================
 
 @api_router.post("/interview-prep/generate", response_model=InterviewPrepResponse)
