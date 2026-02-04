@@ -195,11 +195,13 @@ export default function CalendarPage() {
 
     setSubmitting(true);
     try {
-      // Convert "none" back to empty string for API and ensure reminders_enabled is explicitly sent
+      // Convert local datetime to UTC for backend storage
       const submitData = {
         ...formData,
+        start_date: localToUTC(formData.start_date),
+        end_date: formData.end_date ? localToUTC(formData.end_date) : "",
         job_application_id: formData.job_application_id === "none" ? "" : formData.job_application_id,
-        reminders_enabled: Boolean(formData.reminders_enabled) // Ensure boolean value
+        reminders_enabled: Boolean(formData.reminders_enabled)
       };
       const response = await axios.put(`${API}/calendar/${selectedEvent.id}`, submitData);
       setEvents(events.map(e => e.id === selectedEvent.id ? response.data : e));
