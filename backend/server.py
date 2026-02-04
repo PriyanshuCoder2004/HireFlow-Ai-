@@ -159,6 +159,29 @@ class CoverLetterResponse(BaseModel):
     content: str
     created_at: str
 
+# Phase 1 Cover Letter Generator Models
+class CoverLetterGenerateRequest(BaseModel):
+    resume_id: str
+    job_application_id: str
+    customization_notes: Optional[str] = None
+
+class CoverLetterUpdateRequest(BaseModel):
+    content: Optional[str] = None
+    title: Optional[str] = None
+
+class CoverLetterFullResponse(BaseModel):
+    id: str
+    user_id: str
+    resume_id: str
+    job_application_id: str
+    title: str
+    content: str
+    word_count: int
+    company_name: str
+    position: str
+    created_at: str
+    updated_at: str
+
 class CalendarEventCreate(BaseModel):
     title: str
     description: Optional[str] = None
