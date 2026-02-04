@@ -899,8 +899,8 @@ def parse_event_datetime(date_str: str) -> datetime:
     
     raise ValueError(f"Unable to parse date: {date_str}")
 
-async def process_reminder(event: dict, reminder_type: str):
-    """Process a single reminder"""
+async def process_reminder(event: dict, reminder_type: str) -> bool:
+    """Process a single reminder. Returns True if sent successfully."""
     try:
         event_id = event.get("id")
         
@@ -909,24 +909,24 @@ async def process_reminder(event: dict, reminder_type: str):
         fresh_event = await db.calendar_events.find_one({"id": event_id}, {"_id": 0})
         if not fresh_event:
             logger.warning(f"Event {event_id} no longer exists, skipping reminder")
-            return
+            return False
         
         # Final validation: Check if reminders are still enabled
         if not fresh_event.get("reminders_enabled", False):
             logger.info(f"Reminders disabled for event {event_id}, skipping {reminder_type} reminder")
-            return
+            return False
         
         # Check if this specific reminder was already sent (in case of race condition)
         reminder_sent_field = f"reminder_{reminder_type}_sent"
         if fresh_event.get(reminder_sent_field, False):
             logger.info(f"Reminder {reminder_type} already sent for event {event_id}, skipping")
-            return
+            return False
         
         # Get user info
         user = await db.users.find_one({"id": fresh_event["user_id"]}, {"_id": 0})
         if not user:
             logger.warning(f"User not found for event {event_id}")
-            return
+            return False
         
         # Get job application info if linked
         company_name = "Company"
@@ -966,9 +966,12 @@ async def process_reminder(event: dict, reminder_type: str):
                 {"id": event_id},
                 {"$set": {reminder_sent_field: True}}
             )
+            return True
+        return False
             
     except Exception as e:
         logger.error(f"Failed to process reminder for event {event.get('id')}: {e}")
+        return False
 
 # ===================== AUTH ROUTES =====================
 
