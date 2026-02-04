@@ -55,6 +55,22 @@ security = HTTPBearer()
 # Background Scheduler for email reminders
 scheduler = AsyncIOScheduler()
 
+# Debug mode for development
+DEBUG_MODE = os.environ.get('DEBUG_MODE', 'true').lower() == 'true'
+
+# Scheduler status tracking (for debug endpoint)
+scheduler_status = {
+    "last_run_time": None,
+    "last_run_duration_ms": None,
+    "total_events_checked": 0,
+    "eligible_24hr_count": 0,
+    "eligible_1hr_count": 0,
+    "reminders_sent_24hr": 0,
+    "reminders_sent_1hr": 0,
+    "last_errors": [],
+    "execution_logs": []
+}
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
