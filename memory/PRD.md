@@ -166,6 +166,10 @@ Create a full-stack web application called "HireFlow AI" with user authenticatio
   - Added comprehensive debug logging (server time, time windows, eligible events)
   - Added `/api/scheduler/status` and `/api/scheduler/run-check` endpoints for monitoring
   - First scheduler check now runs 30 seconds after startup, then every 5 minutes
+- **Debug Endpoints (Feb 2025)**: Added public debug endpoints for development
+  - `GET /api/debug/scheduler` - Returns scheduler status, last run info, eligible events, execution logs (NO AUTH)
+  - `POST /api/debug/scheduler/trigger` - Manually triggers scheduler check (NO AUTH)
+  - Only available when `DEBUG_MODE=true` in environment (default: true)
 
 ### Calendar Page Enhancements
 - Added interview type dropdown (HR, Technical, Managerial, Final, Panel, Other)
