@@ -725,11 +725,21 @@ async def send_interview_reminder(
 
 async def check_and_send_reminders():
     """Background job to check upcoming interviews and send reminders"""
+    global scheduler_status
+    start_time = datetime.now(timezone.utc)
+    execution_log = []
+    errors = []
+    
     try:
         now = datetime.now(timezone.utc)
         
-        logger.info(f"=== Reminder Check Started ===")
-        logger.info(f"Server Time (UTC): {now.isoformat()}")
+        log_msg = f"=== Reminder Check Started ==="
+        logger.info(log_msg)
+        execution_log.append({"time": now.isoformat(), "message": log_msg})
+        
+        log_msg = f"Server Time (UTC): {now.isoformat()}"
+        logger.info(log_msg)
+        execution_log.append({"time": now.isoformat(), "message": log_msg})
         
         # Calculate time windows for reminders
         # 24hr reminder: 23-25 hours before interview
@@ -740,8 +750,13 @@ async def check_and_send_reminders():
         time_1hr_start = now + timedelta(minutes=50)
         time_1hr_end = now + timedelta(minutes=70)
         
-        logger.info(f"24hr Window: {time_24hr_start.isoformat()} to {time_24hr_end.isoformat()}")
-        logger.info(f"1hr Window: {time_1hr_start.isoformat()} to {time_1hr_end.isoformat()}")
+        log_msg = f"24hr Window: {time_24hr_start.isoformat()} to {time_24hr_end.isoformat()}"
+        logger.info(log_msg)
+        execution_log.append({"time": now.isoformat(), "message": log_msg})
+        
+        log_msg = f"1hr Window: {time_1hr_start.isoformat()} to {time_1hr_end.isoformat()}"
+        logger.info(log_msg)
+        execution_log.append({"time": now.isoformat(), "message": log_msg})
         
         # Fetch ALL interview events with reminders enabled to debug
         all_events = await db.calendar_events.find({
@@ -749,7 +764,9 @@ async def check_and_send_reminders():
             "event_type": {"$in": ["interview", "phone_screen", "video_call"]}
         }, {"_id": 0}).to_list(100)
         
-        logger.info(f"Total interview events with reminders enabled: {len(all_events)}")
+        log_msg = f"Total interview events with reminders enabled: {len(all_events)}"
+        logger.info(log_msg)
+        execution_log.append({"time": now.isoformat(), "message": log_msg})
         
         # Process events manually with proper datetime parsing
         events_24hr = []
@@ -774,37 +791,79 @@ async def check_and_send_reminders():
                 if 23 <= hours_until <= 25:
                     if not event.get("reminder_24hr_sent", False):
                         events_24hr.append(event)
-                        logger.info(f"  -> Eligible for 24hr reminder: {event.get('title')}")
+                        log_msg = f"  -> Eligible for 24hr reminder: {event.get('title')}"
+                        logger.info(log_msg)
+                        execution_log.append({"time": now.isoformat(), "message": log_msg})
                 
                 # Check 1hr reminder (50-70 minutes before = 0.833-1.167 hours)
                 if 0.833 <= hours_until <= 1.167:
                     if not event.get("reminder_1hr_sent", False):
                         events_1hr.append(event)
-                        logger.info(f"  -> Eligible for 1hr reminder: {event.get('title')}")
+                        log_msg = f"  -> Eligible for 1hr reminder: {event.get('title')}"
+                        logger.info(log_msg)
+                        execution_log.append({"time": now.isoformat(), "message": log_msg})
                         
             except Exception as parse_error:
-                logger.warning(f"Failed to parse date for event {event.get('id')}: {parse_error}")
+                error_msg = f"Failed to parse date for event {event.get('id')}: {parse_error}"
+                logger.warning(error_msg)
+                errors.append(error_msg)
                 continue
         
-        logger.info(f"Events eligible for 24hr reminder: {len(events_24hr)}")
-        logger.info(f"Events eligible for 1hr reminder: {len(events_1hr)}")
+        log_msg = f"Events eligible for 24hr reminder: {len(events_24hr)}"
+        logger.info(log_msg)
+        execution_log.append({"time": now.isoformat(), "message": log_msg})
+        
+        log_msg = f"Events eligible for 1hr reminder: {len(events_1hr)}"
+        logger.info(log_msg)
+        execution_log.append({"time": now.isoformat(), "message": log_msg})
         
         # Process reminders
+        sent_24hr = 0
+        sent_1hr = 0
+        
         for event in events_24hr:
-            logger.info(f"Sending 24hr reminder for: {event.get('title')}")
-            await process_reminder(event, "24hr")
+            log_msg = f"Sending 24hr reminder for: {event.get('title')}"
+            logger.info(log_msg)
+            execution_log.append({"time": datetime.now(timezone.utc).isoformat(), "message": log_msg})
+            result = await process_reminder(event, "24hr")
+            if result:
+                sent_24hr += 1
         
         for event in events_1hr:
-            logger.info(f"Sending 1hr reminder for: {event.get('title')}")
-            await process_reminder(event, "1hr")
+            log_msg = f"Sending 1hr reminder for: {event.get('title')}"
+            logger.info(log_msg)
+            execution_log.append({"time": datetime.now(timezone.utc).isoformat(), "message": log_msg})
+            result = await process_reminder(event, "1hr")
+            if result:
+                sent_1hr += 1
         
         if events_24hr or events_1hr:
-            logger.info(f"=== Reminder Check Complete: {len(events_24hr)} 24hr, {len(events_1hr)} 1hr reminders sent ===")
+            log_msg = f"=== Reminder Check Complete: {len(events_24hr)} 24hr, {len(events_1hr)} 1hr reminders sent ==="
         else:
-            logger.info(f"=== Reminder Check Complete: No reminders to send ===")
+            log_msg = f"=== Reminder Check Complete: No reminders to send ==="
+        logger.info(log_msg)
+        execution_log.append({"time": datetime.now(timezone.utc).isoformat(), "message": log_msg})
+        
+        # Update scheduler status
+        end_time = datetime.now(timezone.utc)
+        scheduler_status = {
+            "last_run_time": start_time.isoformat(),
+            "last_run_duration_ms": int((end_time - start_time).total_seconds() * 1000),
+            "total_events_checked": len(all_events),
+            "eligible_24hr_count": len(events_24hr),
+            "eligible_1hr_count": len(events_1hr),
+            "reminders_sent_24hr": sent_24hr,
+            "reminders_sent_1hr": sent_1hr,
+            "last_errors": errors[-10:],  # Keep last 10 errors
+            "execution_logs": execution_log[-50:]  # Keep last 50 log entries
+        }
             
     except Exception as e:
-        logger.error(f"Reminder check failed: {e}", exc_info=True)
+        error_msg = f"Reminder check failed: {e}"
+        logger.error(error_msg, exc_info=True)
+        errors.append(error_msg)
+        scheduler_status["last_errors"] = errors[-10:]
+        scheduler_status["last_run_time"] = start_time.isoformat()
 
 def parse_event_datetime(date_str: str) -> datetime:
     """Parse event datetime string to timezone-aware datetime"""
