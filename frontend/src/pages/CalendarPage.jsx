@@ -338,7 +338,10 @@ export default function CalendarPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Calendar</h1>
-          <p className="text-muted-foreground">Manage your interviews and events</p>
+          <p className="text-muted-foreground">
+            Manage your interviews and events
+            <span className="text-xs ml-2 opacity-70">({userTimezone})</span>
+          </p>
         </div>
         
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
