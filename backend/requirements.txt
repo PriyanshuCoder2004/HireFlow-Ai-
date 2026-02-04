@@ -100,6 +100,7 @@ pytz==2025.2
 PyYAML==6.0.3
 referencing==0.37.0
 regex==2025.11.3
+reportlab==4.4.9
 requests==2.32.5
 requests-oauthlib==2.0.0
 resend==2.21.0
