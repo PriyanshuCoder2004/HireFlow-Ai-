@@ -2361,8 +2361,10 @@ async def get_analytics(current_user: dict = Depends(get_current_user)):
     # Get resume count
     resume_count = await db.resumes.count_documents({"user_id": user_id})
     
-    # Get cover letter count
-    cover_letter_count = await db.cover_letters.count_documents({"user_id": user_id})
+    # Get cover letter count (from both legacy and v2 collections)
+    cover_letter_count_legacy = await db.cover_letters.count_documents({"user_id": user_id})
+    cover_letter_count_v2 = await db.cover_letters_v2.count_documents({"user_id": user_id})
+    cover_letter_count = cover_letter_count_legacy + cover_letter_count_v2
     
     # Get upcoming events
     now = datetime.now(timezone.utc).isoformat()
