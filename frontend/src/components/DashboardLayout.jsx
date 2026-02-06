@@ -17,7 +17,6 @@ import {
   LayoutDashboard, 
   FileText, 
   Briefcase, 
-  Mail, 
   Calendar as CalendarIcon, 
   Settings, 
   LogOut,
