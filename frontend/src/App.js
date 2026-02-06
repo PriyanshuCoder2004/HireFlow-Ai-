@@ -10,7 +10,6 @@ import DashboardLayout from "@/components/DashboardLayout";
 import DashboardPage from "@/pages/DashboardPage";
 import ResumesPage from "@/pages/ResumesPage";
 import ApplicationsPage from "@/pages/ApplicationsPage";
-import CoverLettersPage from "@/pages/CoverLettersPage";
 import CoverLetterGeneratorPage from "@/pages/CoverLetterGeneratorPage";
 import CalendarPage from "@/pages/CalendarPage";
 import SettingsPage from "@/pages/SettingsPage";
