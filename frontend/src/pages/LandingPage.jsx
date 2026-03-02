@@ -141,7 +141,6 @@ export default function LandingPage() {
               
               <div className="flex items-center gap-6 pt-4">
                 {[
-                  "No credit card required",
                   "14-day free trial",
                   "Cancel anytime"
                 ].map((item) => (
