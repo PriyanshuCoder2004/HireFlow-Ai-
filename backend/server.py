@@ -364,6 +364,27 @@ async def get_llm_response(system_message: str, user_message: str) -> str:
         logger.error(f"LLM error: {e}")
         raise HTTPException(status_code=500, detail="AI service temporarily unavailable")
 
+async def get_llm_response_safe(system_message: str, user_message: str) -> tuple[str, bool]:
+    """
+    Safe version of get_llm_response that returns (response, success) tuple.
+    Never raises exceptions - returns empty string and False on failure.
+    """
+    try:
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=str(uuid.uuid4()),
+            system_message=system_message
+        ).with_model("openai", "gpt-5.2")
+        
+        message = UserMessage(text=user_message)
+        response = await chat.send_message(message)
+        if response and len(response.strip()) > 50:
+            return response, True
+        return "", False
+    except Exception as e:
+        logger.error(f"LLM error (safe mode): {e}")
+        return "", False
+
 # ===================== FILE TEXT EXTRACTION WITH OCR =====================
 
 # Minimum character threshold for valid text extraction
