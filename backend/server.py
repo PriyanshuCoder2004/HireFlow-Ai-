@@ -2305,11 +2305,8 @@ Create personalized, role-specific interview preparation materials that will hel
     ai_succeeded = False
     response = ""
     
-    # Only attempt AI if key is configured and not in test mode
-    # For now, skip AI due to timeout issues and use fallback
-    skip_ai_for_reliability = True  # Set to False to enable AI
-    
-    if not skip_ai_for_reliability and EMERGENT_LLM_KEY and len(EMERGENT_LLM_KEY) > 10:
+    # Attempt AI generation with timeout - fallback will be used if AI fails
+    if EMERGENT_LLM_KEY and len(EMERGENT_LLM_KEY) > 10:
         response, ai_succeeded = await get_llm_response_safe(system_msg, user_msg)
     
     if ai_succeeded and response:
