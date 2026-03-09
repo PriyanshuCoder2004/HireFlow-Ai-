@@ -2284,8 +2284,13 @@ CANDIDATE'S RESUME:
 
 Create personalized, role-specific interview preparation materials that will help this candidate succeed."""
 
-    # Try to get AI response
-    response, ai_succeeded = await get_llm_response_safe(system_msg, user_msg)
+    # Try to get AI response (with timeout protection)
+    ai_succeeded = False
+    response = ""
+    
+    # Only attempt AI if key is configured
+    if EMERGENT_LLM_KEY and len(EMERGENT_LLM_KEY) > 10:
+        response, ai_succeeded = await get_llm_response_safe(system_msg, user_msg)
     
     if ai_succeeded and response:
         try:
