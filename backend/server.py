@@ -2116,6 +2116,11 @@ async def generate_interview_prep(request: InterviewPrepRequest, current_user: d
     if not resume:
         raise HTTPException(status_code=404, detail="Resume not found")
     
+    position = application.get('position', 'the role')
+    company = application.get('company', 'the company')
+    job_description = application.get('job_description', '')
+    resume_content = resume.get('content', '')
+    
     # Optionally get the most recent job match analysis for this resume
     match_analysis = None
     match_score = None
@@ -2142,43 +2147,64 @@ Based on previous analysis, the candidate has these gaps:
 Focus interview questions on these areas to help the candidate prepare.
 """
     
-    system_msg = """You are an expert interview coach and career advisor. Generate comprehensive interview preparation materials.
+    # Try AI generation first
+    ai_succeeded = False
+    analysis = None
+    
+    system_msg = """You are an expert interview coach and career advisor. Generate comprehensive, personalized interview preparation materials.
 
-Create a structured interview preparation guide with:
+Your response must be practical, specific to the role, and actionable.
 
-1. HR/Behavioral Questions (5-7 questions):
+Create a structured interview preparation guide with these sections:
+
+1. ROLE OVERVIEW:
+   - Brief summary of what the role entails
+   - Key responsibilities to understand
+   - Skills that will be assessed
+
+2. HR/BEHAVIORAL QUESTIONS (5-7 questions):
    - Questions about teamwork, leadership, conflict resolution, career goals
-   - Use STAR method guidance (Situation, Task, Action, Result)
-   - Include difficulty level
+   - Include STAR method guidance (Situation, Task, Action, Result)
+   - Include difficulty level (easy/medium/hard)
 
-2. Technical Questions (5-8 questions):
+3. TECHNICAL QUESTIONS (5-8 questions):
    - Based on job requirements and technical skills needed
    - Range from basic to advanced
-   - Include hints for answering
+   - Include hints and key points for answering
 
-3. Scenario-Based Questions (3-5 questions):
+4. SCENARIO-BASED QUESTIONS (3-5 questions):
    - Real-world problem-solving scenarios
-   - Role-specific challenges
+   - Role-specific challenges they might face
    - Include approach guidance
 
-4. Weak Areas to Prepare:
+5. PROJECT-BASED QUESTIONS (2-3 questions):
+   - Questions based on projects mentioned in resume
+   - Deep-dive questions about their experience
+
+6. WEAK AREAS TO PREPARE:
    - Topics the candidate should study
    - Specific preparation tips
-   - Learning resources if applicable
+   - Learning resources
 
-5. General Tips:
-   - Interview best practices
+7. PREPARATION TIPS:
+   - Interview best practices for this specific role
    - Company-specific advice
+   - What to bring/prepare
 
-6. Company Research Points:
+8. COMPANY RESEARCH POINTS:
    - What to research about the company
    - Industry trends to know
 
-7. Questions to Ask the Interviewer:
+9. QUESTIONS TO ASK THE INTERVIEWER:
    - Smart questions showing interest and preparation
 
 Respond ONLY in this exact JSON format:
 {
+    "role_overview": {
+        "summary": "Brief role summary",
+        "key_responsibilities": ["Responsibility 1", "Responsibility 2"],
+        "skills_assessed": ["Skill 1", "Skill 2"]
+    },
     "hr_behavioral_questions": [
         {
             "question": "Tell me about a time...",
@@ -2206,6 +2232,15 @@ Respond ONLY in this exact JSON format:
             "sample_points": ["Approach step 1", "Approach step 2"]
         }
     ],
+    "project_questions": [
+        {
+            "question": "Tell me about [project from resume]...",
+            "category": "project",
+            "difficulty": "medium",
+            "guidance": ["Explain your role", "Discuss challenges"],
+            "sample_points": ["Your contribution", "Results achieved"]
+        }
+    ],
     "weak_areas": [
         {
             "topic": "Topic name",
@@ -2219,80 +2254,65 @@ Respond ONLY in this exact JSON format:
     "questions_to_ask": ["Question 1", "Question 2"]
 }"""
 
-    user_msg = f"""Generate interview preparation for:
+    user_msg = f"""Generate comprehensive interview preparation for:
 
-POSITION: {application.get('position', 'Not specified')}
-COMPANY: {application.get('company', 'Not specified')}
+POSITION: {position}
+COMPANY: {company}
 
 JOB DESCRIPTION:
-{application.get('job_description', 'No job description provided')}
+{job_description if job_description else 'No specific job description provided - generate general preparation for this role type'}
 
 CANDIDATE'S RESUME:
-{resume.get('content', '')}
+{resume_content if resume_content else 'No resume content provided'}
 
 {weak_areas_context}
 
-Create comprehensive, role-specific interview preparation materials."""
+Create personalized, role-specific interview preparation materials that will help this candidate succeed."""
 
-    response = await get_llm_response(system_msg, user_msg)
+    # Try to get AI response
+    response, ai_succeeded = await get_llm_response_safe(system_msg, user_msg)
     
-    try:
-        import json
-        clean_response = response.strip()
-        if clean_response.startswith("```json"):
-            clean_response = clean_response[7:]
-        if clean_response.startswith("```"):
-            clean_response = clean_response[3:]
-        if clean_response.endswith("```"):
-            clean_response = clean_response[:-3]
-        prep_data = json.loads(clean_response.strip())
-        
-        # Parse and validate the response
-        analysis = InterviewPrepAnalysis(
-            hr_behavioral_questions=[InterviewQuestion(**q) for q in prep_data.get("hr_behavioral_questions", [])],
-            technical_questions=[InterviewQuestion(**q) for q in prep_data.get("technical_questions", [])],
-            scenario_questions=[InterviewQuestion(**q) for q in prep_data.get("scenario_questions", [])],
-            weak_areas=[WeakArea(**w) for w in prep_data.get("weak_areas", [])],
-            general_tips=prep_data.get("general_tips", []),
-            company_research_points=prep_data.get("company_research_points", []),
-            questions_to_ask=prep_data.get("questions_to_ask", [])
-        )
-    except Exception as e:
-        logger.error(f"Failed to parse interview prep response: {e}")
-        # Provide default structure
-        analysis = InterviewPrepAnalysis(
-            hr_behavioral_questions=[
-                InterviewQuestion(
-                    question="Tell me about yourself and why you're interested in this role.",
-                    category="hr_behavioral",
-                    difficulty="easy",
-                    guidance=["Keep it professional", "Connect to the role", "Be concise (2-3 minutes)"],
-                    sample_points=["Your background", "Relevant experience", "Why this company"]
-                )
-            ],
-            technical_questions=[
-                InterviewQuestion(
-                    question="Describe your technical background and key skills.",
-                    category="technical",
-                    difficulty="easy",
-                    guidance=["Focus on relevant skills", "Give examples"],
-                    sample_points=["Primary technologies", "Projects completed"]
-                )
-            ],
-            scenario_questions=[
-                InterviewQuestion(
-                    question="How would you handle a challenging project deadline?",
-                    category="scenario",
-                    difficulty="medium",
-                    guidance=["Show problem-solving", "Demonstrate leadership"],
-                    sample_points=["Prioritization", "Communication", "Delivery"]
-                )
-            ],
-            weak_areas=[],
-            general_tips=["Research the company", "Prepare questions", "Arrive early"],
-            company_research_points=["Company mission", "Recent news", "Products/services"],
-            questions_to_ask=["What does success look like in this role?", "What are the team dynamics?"]
-        )
+    if ai_succeeded and response:
+        try:
+            import json
+            clean_response = response.strip()
+            if clean_response.startswith("```json"):
+                clean_response = clean_response[7:]
+            if clean_response.startswith("```"):
+                clean_response = clean_response[3:]
+            if clean_response.endswith("```"):
+                clean_response = clean_response[:-3]
+            prep_data = json.loads(clean_response.strip())
+            
+            # Extract role overview if present
+            role_overview = prep_data.get("role_overview", {})
+            
+            # Parse questions, including new project_questions
+            all_questions = []
+            all_questions.extend([InterviewQuestion(**q) for q in prep_data.get("hr_behavioral_questions", [])])
+            all_questions.extend([InterviewQuestion(**q) for q in prep_data.get("technical_questions", [])])
+            all_questions.extend([InterviewQuestion(**q) for q in prep_data.get("scenario_questions", [])])
+            all_questions.extend([InterviewQuestion(**q) for q in prep_data.get("project_questions", [])])
+            
+            # Parse and validate the response
+            analysis = InterviewPrepAnalysis(
+                hr_behavioral_questions=[InterviewQuestion(**q) for q in prep_data.get("hr_behavioral_questions", [])],
+                technical_questions=[InterviewQuestion(**q) for q in prep_data.get("technical_questions", [])],
+                scenario_questions=[InterviewQuestion(**q) for q in prep_data.get("scenario_questions", [])],
+                weak_areas=[WeakArea(**w) for w in prep_data.get("weak_areas", [])],
+                general_tips=prep_data.get("general_tips", []),
+                company_research_points=prep_data.get("company_research_points", []),
+                questions_to_ask=prep_data.get("questions_to_ask", [])
+            )
+            logger.info(f"AI interview prep generated successfully for {position} at {company}")
+        except Exception as e:
+            logger.error(f"Failed to parse AI interview prep response: {e}")
+            ai_succeeded = False
+    
+    # If AI failed, use comprehensive fallback
+    if not ai_succeeded or not analysis:
+        logger.warning(f"Using fallback interview prep for {position} at {company}")
+        analysis = generate_fallback_interview_prep(position, company, job_description, resume_content)
     
     # Store in database
     prep_id = str(uuid.uuid4())
@@ -2303,18 +2323,244 @@ Create comprehensive, role-specific interview preparation materials."""
         "user_id": current_user["id"],
         "application_id": request.application_id,
         "resume_id": request.resume_id,
-        "job_title": application.get("position", ""),
-        "company_name": application.get("company", ""),
+        "job_title": position,
+        "company_name": company,
         "analysis": analysis.model_dump(),
         "match_score": match_score,
+        "ai_generated": ai_succeeded,
         "created_at": now,
         "updated_at": now
     }
     
     await db.interview_preps.insert_one(prep_doc)
-    logger.info(f"Interview prep generated: {prep_id} for user {current_user['id']}")
+    logger.info(f"Interview prep {'(AI)' if ai_succeeded else '(fallback)'} saved: {prep_id} for user {current_user['id']}")
     
     return InterviewPrepResponse(**{k: v for k, v in prep_doc.items() if k != "_id"})
+
+
+def generate_fallback_interview_prep(position: str, company: str, job_description: str, resume_content: str) -> InterviewPrepAnalysis:
+    """
+    Generate a comprehensive fallback interview preparation guide.
+    This is used when AI service is unavailable.
+    """
+    
+    # Extract some keywords from job description for personalization
+    tech_keywords = []
+    if job_description:
+        common_tech = ['python', 'javascript', 'react', 'node', 'sql', 'aws', 'docker', 'kubernetes', 
+                       'java', 'c++', 'golang', 'rust', 'typescript', 'angular', 'vue', 'mongodb',
+                       'postgresql', 'redis', 'kafka', 'spark', 'machine learning', 'ai', 'data']
+        job_desc_lower = job_description.lower()
+        tech_keywords = [tech for tech in common_tech if tech in job_desc_lower][:5]
+    
+    # Build comprehensive fallback content
+    hr_behavioral_questions = [
+        InterviewQuestion(
+            question=f"Tell me about yourself and why you're interested in the {position} role at {company}.",
+            category="hr_behavioral",
+            difficulty="easy",
+            guidance=["Keep it professional and concise (2-3 minutes)", "Connect your background to the role", "Show enthusiasm for the company"],
+            sample_points=["Your professional background", "Relevant experience and skills", "Why this role excites you"]
+        ),
+        InterviewQuestion(
+            question="Describe a challenging project you worked on. What was your role and how did you handle obstacles?",
+            category="hr_behavioral",
+            difficulty="medium",
+            guidance=["Use the STAR method (Situation, Task, Action, Result)", "Focus on your specific contributions", "Quantify results where possible"],
+            sample_points=["The challenge you faced", "Actions you took", "Measurable outcomes achieved"]
+        ),
+        InterviewQuestion(
+            question="Tell me about a time when you had a conflict with a colleague. How did you resolve it?",
+            category="hr_behavioral",
+            difficulty="medium",
+            guidance=["Show emotional intelligence", "Focus on resolution, not the conflict", "Demonstrate professionalism"],
+            sample_points=["How you approached the conversation", "Steps to find common ground", "Positive outcome achieved"]
+        ),
+        InterviewQuestion(
+            question="Where do you see yourself in 5 years? How does this role fit into your career goals?",
+            category="hr_behavioral",
+            difficulty="easy",
+            guidance=["Show ambition but be realistic", "Align goals with company growth", "Demonstrate commitment"],
+            sample_points=["Skills you want to develop", "Leadership aspirations", "Industry expertise goals"]
+        ),
+        InterviewQuestion(
+            question="Describe a time when you had to learn something new quickly. How did you approach it?",
+            category="hr_behavioral",
+            difficulty="medium",
+            guidance=["Show adaptability and learning agility", "Describe your learning process", "Highlight the outcome"],
+            sample_points=["Your learning strategy", "Resources you used", "How you applied the knowledge"]
+        ),
+        InterviewQuestion(
+            question="Tell me about a time you received constructive criticism. How did you handle it?",
+            category="hr_behavioral",
+            difficulty="medium",
+            guidance=["Show growth mindset", "Demonstrate self-awareness", "Focus on improvement"],
+            sample_points=["How you received the feedback", "Actions you took to improve", "Results of your changes"]
+        )
+    ]
+    
+    # Technical questions based on role or generic
+    technical_questions = [
+        InterviewQuestion(
+            question=f"Walk me through your technical background and how it prepares you for this {position} role.",
+            category="technical",
+            difficulty="easy",
+            guidance=["Start with your strongest skills", "Connect to job requirements", "Give specific examples"],
+            sample_points=["Core technical competencies", "Relevant projects", "Continuous learning efforts"]
+        ),
+        InterviewQuestion(
+            question="Describe your approach to debugging a complex issue in production.",
+            category="technical",
+            difficulty="medium",
+            guidance=["Show systematic thinking", "Mention tools you use", "Discuss prevention strategies"],
+            sample_points=["Initial diagnosis steps", "Root cause analysis", "Long-term fixes implemented"]
+        ),
+        InterviewQuestion(
+            question="How do you ensure code quality in your work? What practices do you follow?",
+            category="technical",
+            difficulty="medium",
+            guidance=["Mention testing strategies", "Discuss code reviews", "Talk about documentation"],
+            sample_points=["Testing approaches (unit, integration)", "Code review process", "Best practices you follow"]
+        ),
+        InterviewQuestion(
+            question="Explain a technical concept you know well to me as if I were a non-technical stakeholder.",
+            category="technical",
+            difficulty="medium",
+            guidance=["Use analogies and simple language", "Focus on business value", "Avoid jargon"],
+            sample_points=["Clear explanation", "Real-world comparison", "Why it matters"]
+        ),
+        InterviewQuestion(
+            question="How do you stay current with new technologies and industry trends?",
+            category="technical",
+            difficulty="easy",
+            guidance=["Show passion for learning", "Mention specific resources", "Discuss practical application"],
+            sample_points=["Learning resources you use", "Communities you're part of", "Recent things you've learned"]
+        )
+    ]
+    
+    # Add tech-specific questions if keywords found
+    if tech_keywords:
+        tech_list = ', '.join(tech_keywords[:3])
+        technical_questions.append(
+            InterviewQuestion(
+                question=f"I see this role involves {tech_list}. Describe your experience with these technologies.",
+                category="technical",
+                difficulty="medium",
+                guidance=["Be specific about your experience level", "Give project examples", "Mention challenges overcome"],
+                sample_points=["Projects using these technologies", "Proficiency level", "Best practices you follow"]
+            )
+        )
+    
+    scenario_questions = [
+        InterviewQuestion(
+            question=f"Imagine you join {company} and are given a project with unclear requirements. How would you proceed?",
+            category="scenario",
+            difficulty="medium",
+            guidance=["Show initiative and communication skills", "Discuss stakeholder management", "Mention risk mitigation"],
+            sample_points=["Clarification questions you'd ask", "How you'd document requirements", "Iterative approach"]
+        ),
+        InterviewQuestion(
+            question="You discover a critical bug just before a major release. Walk me through your decision-making process.",
+            category="scenario",
+            difficulty="hard",
+            guidance=["Show prioritization skills", "Discuss communication approach", "Balance urgency with quality"],
+            sample_points=["Immediate assessment steps", "Stakeholder communication", "Risk evaluation"]
+        ),
+        InterviewQuestion(
+            question="A team member is consistently missing deadlines, affecting your work. How do you handle this?",
+            category="scenario",
+            difficulty="medium",
+            guidance=["Show empathy and professionalism", "Focus on solutions", "Know when to escalate"],
+            sample_points=["Private conversation approach", "Understanding root causes", "Collaborative solutions"]
+        ),
+        InterviewQuestion(
+            question="You're asked to implement a feature you believe is technically flawed. What do you do?",
+            category="scenario",
+            difficulty="hard",
+            guidance=["Balance technical opinion with business needs", "Communicate concerns professionally", "Propose alternatives"],
+            sample_points=["How you'd voice concerns", "Alternative solutions", "Documentation of risks"]
+        )
+    ]
+    
+    weak_areas = [
+        WeakArea(
+            topic="Company Knowledge",
+            reason=f"Understanding {company}'s products, culture, and recent developments will show genuine interest",
+            preparation_tips=[
+                f"Research {company}'s website, especially About Us and Products pages",
+                "Look up recent news articles and press releases",
+                "Check LinkedIn for company updates and employee posts",
+                "Understand their competitors and market position"
+            ],
+            resources=["Company website", "LinkedIn company page", "Glassdoor reviews", "Recent news articles"]
+        ),
+        WeakArea(
+            topic="Role-Specific Requirements",
+            reason=f"Deep understanding of {position} responsibilities will help you give relevant answers",
+            preparation_tips=[
+                "Review the job description multiple times",
+                "Research similar roles at other companies",
+                "Identify key skills and prepare examples for each",
+                "Understand common challenges in this role"
+            ],
+            resources=["Job posting", "Industry blogs", "Professional forums", "LinkedIn job descriptions"]
+        ),
+        WeakArea(
+            topic="STAR Method Stories",
+            reason="Behavioral questions require structured, specific stories from your experience",
+            preparation_tips=[
+                "Prepare 5-7 detailed stories using STAR format",
+                "Include stories about leadership, conflict, failure, and success",
+                "Practice telling each story in 2-3 minutes",
+                "Have metrics and specific outcomes ready"
+            ],
+            resources=["Your resume and past projects", "Performance reviews", "Colleague feedback"]
+        )
+    ]
+    
+    general_tips = [
+        f"Research {company} thoroughly - know their products, mission, and recent news",
+        "Prepare specific examples from your experience using the STAR method",
+        "Practice answering questions out loud, not just in your head",
+        "Prepare thoughtful questions to ask the interviewer",
+        "Dress professionally and arrive 10-15 minutes early",
+        "Bring copies of your resume and a notepad",
+        "Follow up with a thank-you email within 24 hours",
+        "Get a good night's sleep before the interview",
+        "Review the job description one more time before the interview",
+        "Be ready to discuss salary expectations if asked"
+    ]
+    
+    company_research_points = [
+        f"{company}'s mission statement and core values",
+        "Recent company news, product launches, or acquisitions",
+        "Company culture and work environment",
+        "Key competitors and market position",
+        "Growth trajectory and future plans",
+        "Leadership team and organizational structure",
+        "Employee reviews on Glassdoor and LinkedIn"
+    ]
+    
+    questions_to_ask = [
+        f"What does success look like for a {position} in the first 90 days?",
+        "How would you describe the team culture?",
+        "What are the biggest challenges facing the team right now?",
+        "How does this role contribute to the company's overall goals?",
+        "What opportunities for growth and development does the company offer?",
+        "Can you describe a typical day or week in this role?",
+        "What do you enjoy most about working at " + company + "?",
+        "What are the next steps in the interview process?"
+    ]
+    
+    return InterviewPrepAnalysis(
+        hr_behavioral_questions=hr_behavioral_questions,
+        technical_questions=technical_questions,
+        scenario_questions=scenario_questions,
+        weak_areas=weak_areas,
+        general_tips=general_tips,
+        company_research_points=company_research_points,
+        questions_to_ask=questions_to_ask
+    )
 
 @api_router.get("/interview-prep", response_model=List[InterviewPrepResponse])
 async def get_interview_preps(application_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
