@@ -365,13 +365,13 @@ async def get_llm_response(system_message: str, user_message: str) -> str:
         logger.error(f"LLM error: {e}")
         raise HTTPException(status_code=500, detail="AI service temporarily unavailable")
 
-async def get_llm_response_safe(system_message: str, user_message: str, timeout_seconds: int = 30) -> tuple[str, bool]:
+async def get_llm_response_safe(system_message: str, user_message: str, timeout_seconds: int = 45) -> tuple[str, bool]:
     """
     Safe version of get_llm_response that returns (response, success) tuple.
     Never raises exceptions - returns empty string and False on failure.
     Includes timeout to ensure fallback kicks in quickly.
     """
-    try:
+    async def _make_llm_call():
         chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
             session_id=str(uuid.uuid4()),
@@ -379,16 +379,22 @@ async def get_llm_response_safe(system_message: str, user_message: str, timeout_
         ).with_model("openai", "gpt-5.2")
         
         message = UserMessage(text=user_message)
-        
-        # Add timeout to prevent hanging
-        try:
-            response = await asyncio.wait_for(chat.send_message(message), timeout=timeout_seconds)
-        except asyncio.TimeoutError:
-            logger.warning(f"LLM call timed out after {timeout_seconds}s, using fallback")
-            return "", False
+        return await chat.send_message(message)
+    
+    try:
+        # Add timeout to prevent hanging - wrap entire call
+        response = await asyncio.wait_for(_make_llm_call(), timeout=timeout_seconds)
         
         if response and len(response.strip()) > 50:
+            logger.info("LLM call succeeded")
             return response, True
+        logger.warning("LLM response too short or empty")
+        return "", False
+    except asyncio.TimeoutError:
+        logger.warning(f"LLM call timed out after {timeout_seconds}s, using fallback")
+        return "", False
+    except asyncio.CancelledError:
+        logger.warning("LLM call was cancelled, using fallback")
         return "", False
     except Exception as e:
         logger.error(f"LLM error (safe mode): {e}")
