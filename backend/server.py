@@ -365,10 +365,11 @@ async def get_llm_response(system_message: str, user_message: str) -> str:
         logger.error(f"LLM error: {e}")
         raise HTTPException(status_code=500, detail="AI service temporarily unavailable")
 
-async def get_llm_response_safe(system_message: str, user_message: str) -> tuple[str, bool]:
+async def get_llm_response_safe(system_message: str, user_message: str, timeout_seconds: int = 30) -> tuple[str, bool]:
     """
     Safe version of get_llm_response that returns (response, success) tuple.
     Never raises exceptions - returns empty string and False on failure.
+    Includes timeout to ensure fallback kicks in quickly.
     """
     try:
         chat = LlmChat(
@@ -378,7 +379,14 @@ async def get_llm_response_safe(system_message: str, user_message: str) -> tuple
         ).with_model("openai", "gpt-5.2")
         
         message = UserMessage(text=user_message)
-        response = await chat.send_message(message)
+        
+        # Add timeout to prevent hanging
+        try:
+            response = await asyncio.wait_for(chat.send_message(message), timeout=timeout_seconds)
+        except asyncio.TimeoutError:
+            logger.warning(f"LLM call timed out after {timeout_seconds}s, using fallback")
+            return "", False
+        
         if response and len(response.strip()) > 50:
             return response, True
         return "", False
