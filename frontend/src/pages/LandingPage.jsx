@@ -140,10 +140,7 @@ export default function LandingPage() {
               </div>
               
               <div className="flex items-center gap-6 pt-4">
-                {[
-                  "14-day free trial",
-                  "Cancel anytime"
-                ].map((item) => (
+                {[].map((item) => (
                   <div key={item} className="flex items-center gap-2 text-sm text-muted-foreground">
                     <CheckCircle2 className="h-4 w-4 text-primary" />
                     {item}
@@ -265,7 +262,7 @@ export default function LandingPage() {
             <span className="font-semibold">HireFlow AI</span>
           </div>
           <p className="text-sm text-muted-foreground">
-            © 2025 HireFlow AI. All rights reserved.
+            © 2026 HireFlow AI. All rights reserved.
           </p>
         </div>
       </footer>
