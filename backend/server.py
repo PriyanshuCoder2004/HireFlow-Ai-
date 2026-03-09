@@ -365,25 +365,42 @@ async def get_llm_response(system_message: str, user_message: str) -> str:
         logger.error(f"LLM error: {e}")
         raise HTTPException(status_code=500, detail="AI service temporarily unavailable")
 
-async def get_llm_response_safe(system_message: str, user_message: str, timeout_seconds: int = 45) -> tuple[str, bool]:
+async def get_llm_response_safe(system_message: str, user_message: str, timeout_seconds: int = 30) -> tuple[str, bool]:
     """
     Safe version of get_llm_response that returns (response, success) tuple.
     Never raises exceptions - returns empty string and False on failure.
     Includes timeout to ensure fallback kicks in quickly.
     """
-    async def _make_llm_call():
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=str(uuid.uuid4()),
-            system_message=system_message
-        ).with_model("openai", "gpt-5.2")
+    import concurrent.futures
+    
+    def _sync_llm_call():
+        """Synchronous wrapper for LLM call to run in thread pool"""
+        import asyncio
         
-        message = UserMessage(text=user_message)
-        return await chat.send_message(message)
+        async def _async_call():
+            chat = LlmChat(
+                api_key=EMERGENT_LLM_KEY,
+                session_id=str(uuid.uuid4()),
+                system_message=system_message
+            ).with_model("openai", "gpt-5.2")
+            
+            message = UserMessage(text=user_message)
+            return await chat.send_message(message)
+        
+        # Create new event loop for thread
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(_async_call())
+        finally:
+            loop.close()
     
     try:
-        # Add timeout to prevent hanging - wrap entire call
-        response = await asyncio.wait_for(_make_llm_call(), timeout=timeout_seconds)
+        # Run LLM call in thread pool with timeout
+        loop = asyncio.get_event_loop()
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future = loop.run_in_executor(executor, _sync_llm_call)
+            response = await asyncio.wait_for(future, timeout=timeout_seconds)
         
         if response and len(response.strip()) > 50:
             logger.info("LLM call succeeded")
