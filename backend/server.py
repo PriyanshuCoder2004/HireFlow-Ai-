@@ -316,6 +316,7 @@ class InterviewPrepResponse(BaseModel):
     company_name: str
     analysis: InterviewPrepAnalysis
     match_score: Optional[int] = None
+    ai_generated: Optional[bool] = None
     created_at: str
     updated_at: str
 
