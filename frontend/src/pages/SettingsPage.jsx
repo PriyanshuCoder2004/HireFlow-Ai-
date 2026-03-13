@@ -206,8 +206,8 @@ export default function SettingsPage() {
                 Update your account password
               </p>
             </div>
-            <Button variant="outline" disabled data-testid="change-password-btn">
-              Coming Soon
+            <Button variant="outline" onClick={() => toast.info("Change password feature coming soon")}>
+              Change Password
             </Button>
           </div>
           
@@ -220,8 +220,8 @@ export default function SettingsPage() {
                 Permanently delete your account and data
               </p>
             </div>
-            <Button variant="destructive" disabled data-testid="delete-account-btn">
-              Coming Soon
+            <Button variant="destructive" onClick={() => toast.info("Account deletion feature coming soon")}>
+              Delete Account
             </Button>
           </div>
         </CardContent>

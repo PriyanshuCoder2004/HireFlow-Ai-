@@ -27,7 +27,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+load_dotenv()
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -41,6 +41,7 @@ JWT_EXPIRATION_HOURS = 24
 
 # LLM Key
 EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
+print("EMERGENT_LLM_KEY:", EMERGENT_LLM_KEY)
 
 # Email Configuration (Resend)
 RESEND_API_KEY = os.environ.get('RESEND_API_KEY')
@@ -350,73 +351,104 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+# async def get_llm_response(system_message: str, user_message: str) -> str:
+#     try:
+#         chat = LlmChat(
+#             api_key=EMERGENT_LLM_KEY,
+#             session_id=str(uuid.uuid4()),
+#             system_message=system_message
+#         ).with_model("openai", "gpt-4o-mini")
+        
+#         message = UserMessage(text=user_message)
+#         response = await chat.send_message(message)
+#         return response
+#     except Exception as e:
+#         print("LLM ERROR:", str(e))
+#         logger.error(f"LLM error: {e}")
+#         raise HTTPException(status_code=500, detail="AI service temporarily unavailable")
+
+# async def get_llm_response_safe(system_message: str, user_message: str, timeout_seconds: int = 30) -> tuple[str, bool]:
+#     """
+#     Safe version of get_llm_response that returns (response, success) tuple.
+#     Never raises exceptions - returns empty string and False on failure.
+#     Includes timeout to ensure fallback kicks in quickly.
+#     """
+#     import concurrent.futures
+    
+#     def _sync_llm_call():
+#         """Synchronous wrapper for LLM call to run in thread pool"""
+#         import asyncio
+        
+#         async def _async_call():
+#             chat = LlmChat(
+#                 api_key=EMERGENT_LLM_KEY,
+#                 session_id=str(uuid.uuid4()),
+#                 system_message=system_message
+#             ).with_model("openai", "gpt-4o-mini")
+            
+#             message = UserMessage(text=user_message)
+#             return await chat.send_message(message)
+        
+#         # Create new event loop for thread
+#         loop = asyncio.new_event_loop()
+#         asyncio.set_event_loop(loop)
+#         try:
+#             return loop.run_until_complete(_async_call())
+#         finally:
+#             loop.close()
+    
+#     try:
+#         # Run LLM call in thread pool with timeout
+#         loop = asyncio.get_event_loop()
+#         with concurrent.futures.ThreadPoolExecutor() as executor:
+#             future = loop.run_in_executor(executor, _sync_llm_call)
+#             response = await asyncio.wait_for(future, timeout=timeout_seconds)
+        
+#         if response and len(response.strip()) > 50:
+#             logger.info("LLM call succeeded")
+#             return response, True
+#         logger.warning("LLM response too short or empty")
+#         return "", False
+#     except asyncio.TimeoutError:
+#         logger.warning(f"LLM call timed out after {timeout_seconds}s, using fallback")
+#         return "", False
+#     except asyncio.CancelledError:
+#         logger.warning("LLM call was cancelled, using fallback")
+#         return "", False
+#     except Exception as e:
+#         logger.error(f"LLM error (safe mode): {e}")
+#         return "", False
+
 async def get_llm_response(system_message: str, user_message: str) -> str:
     try:
+        if not EMERGENT_LLM_KEY:
+            raise Exception("EMERGENT_LLM_KEY not found")
+
         chat = LlmChat(
             api_key=EMERGENT_LLM_KEY,
             session_id=str(uuid.uuid4()),
             system_message=system_message
-        ).with_model("openai", "gpt-5.2")
-        
+        ).with_model("openai", "gpt-4o-mini")
+
         message = UserMessage(text=user_message)
-        response = await chat.send_message(message)
-        return response
-    except Exception as e:
-        logger.error(f"LLM error: {e}")
-        raise HTTPException(status_code=500, detail="AI service temporarily unavailable")
 
-async def get_llm_response_safe(system_message: str, user_message: str, timeout_seconds: int = 30) -> tuple[str, bool]:
-    """
-    Safe version of get_llm_response that returns (response, success) tuple.
-    Never raises exceptions - returns empty string and False on failure.
-    Includes timeout to ensure fallback kicks in quickly.
-    """
-    import concurrent.futures
-    
-    def _sync_llm_call():
-        """Synchronous wrapper for LLM call to run in thread pool"""
-        import asyncio
-        
-        async def _async_call():
-            chat = LlmChat(
-                api_key=EMERGENT_LLM_KEY,
-                session_id=str(uuid.uuid4()),
-                system_message=system_message
-            ).with_model("openai", "gpt-5.2")
-            
-            message = UserMessage(text=user_message)
-            return await chat.send_message(message)
-        
-        # Create new event loop for thread
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(_async_call())
-        finally:
-            loop.close()
-    
-    try:
-        # Run LLM call in thread pool with timeout
-        loop = asyncio.get_event_loop()
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = loop.run_in_executor(executor, _sync_llm_call)
-            response = await asyncio.wait_for(future, timeout=timeout_seconds)
-        
-        if response and len(response.strip()) > 50:
-            logger.info("LLM call succeeded")
-            return response, True
-        logger.warning("LLM response too short or empty")
-        return "", False
+        response = await asyncio.wait_for(
+            chat.send_message(message),
+            timeout=40
+        )
+
+        if not response:
+            raise Exception("Empty response from LLM")
+
+        return str(response)
+
     except asyncio.TimeoutError:
-        logger.warning(f"LLM call timed out after {timeout_seconds}s, using fallback")
-        return "", False
-    except asyncio.CancelledError:
-        logger.warning("LLM call was cancelled, using fallback")
-        return "", False
-    except Exception as e:
-        logger.error(f"LLM error (safe mode): {e}")
-        return "", False
+        print("LLM TIMEOUT")
+        raise HTTPException(status_code=500, detail="AI request timeout")
 
+    except Exception as e:
+        print("LLM ERROR:", str(e))
+        raise HTTPException(status_code=500, detail="AI service unavailable")
 # ===================== FILE TEXT EXTRACTION WITH OCR =====================
 
 # Minimum character threshold for valid text extraction
@@ -2307,7 +2339,14 @@ Create personalized, role-specific interview preparation materials that will hel
     
     # Attempt AI generation with timeout - fallback will be used if AI fails
     if EMERGENT_LLM_KEY and len(EMERGENT_LLM_KEY) > 10:
-        response, ai_succeeded = await get_llm_response_safe(system_msg, user_msg)
+        # response, ai_succeeded = await get_llm_response_safe(system_msg, user_msg)
+        try:
+            response = await get_llm_response(system_msg, user_msg)
+            ai_succeeded = True
+        except Exception as e:
+            logger.error(f"Interview prep AI failed: {e}")
+            response = ""
+            ai_succeeded = False
     
     if ai_succeeded and response:
         try:

@@ -6,7 +6,6 @@
 
 # Dependencies
 node_modules/
-/node_modules
 /.pnp
 .pnp.js
 .yarn/install-state.gz
@@ -28,7 +27,6 @@ next-env.d.ts
 # Production builds
 /build
 dist/
-dist
 
 # Environment files (comprehensive coverage)
 
@@ -79,3 +77,36 @@ agenthub/agents/youtube/db
 # Mobile development
 android-sdk/ frontend/node_modules/.cache/default-development/0.pack
 frontend/node_modules/.cache/default-development/0.pack
+
+# Environment variables
+.env
+.env.*
+.env.local
+.env.production
+.env.development
+
+# Python testing cache
+.pytest_cache/
+.ruff_cache/
+
+# AI runtime memory
+memory/
+
+# Test reports
+test_reports/
+backend_test_results.json
+
+# Logs
+*.log
+logs/
+
+# OS temporary files
+Thumbs.db
+
+# temporary files
+tmp/
+temp/
+
+# build artifacts
+*.pid
+*.seed

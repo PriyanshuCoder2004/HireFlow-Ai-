@@ -134,13 +134,12 @@ export default function InterviewPrepPage() {
       setViewOpen(true);
       
       // Check if AI was used or fallback
-      if (response.data.ai_generated === false) {
-        toast.info("AI service temporarily unavailable. Showing standard interview preparation guide.", {
-          duration: 5000
-        });
+      if (response.data.ai_generated) {
+       toast.success("AI-powered interview preparation generated!");
       } else {
-        toast.success("Interview preparation generated!");
-      }
+         toast.success("Interview preparation generated!");
+    }
+    
       setFormData({ application_id: "", resume_id: "" });
     } catch (error) {
       console.error(error);
