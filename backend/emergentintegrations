@@ -1,0 +1,45 @@
+import requests
+import os
+
+EMERGENT_LLM_KEY = os.getenv("EMERGENT_LLM_KEY")
+
+class UserMessage:
+    def __init__(self, text):
+        self.text = text
+
+
+class LlmChat:
+    def __init__(self, api_key, session_id=None, system_message=None):
+        self.api_key = api_key
+        self.session_id = session_id
+        self.system_message = system_message
+        self.model = "gpt-4o-mini"
+
+    def with_model(self, provider, model):
+        self.model = model
+        return self
+
+    async def send_message(self, message):
+        url = "https://api.emergent.sh/v1/chat/completions"
+
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": self.system_message},
+                {"role": "user", "content": message.text}
+            ]
+        }
+
+        response = requests.post(url, headers=headers, json=payload)
+
+        if response.status_code != 200:
+            raise Exception("LLM API Error")
+
+        data = response.json()
+
+        return data["choices"][0]["message"]["content"]
