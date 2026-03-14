@@ -16,7 +16,7 @@ import uuid
 from datetime import datetime, timezone, timedelta
 import jwt
 import bcrypt
-from emergentintegrations import LlmChat, UserMessage
+from emergentintegrations.llm.chat import LlmChat, UserMessage
 import PyPDF2
 from docx import Document
 import pytesseract
